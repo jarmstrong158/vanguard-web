@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
-import { playBgm } from "./audio";
-import { activeParty, addMarks, assignBounty, awardXp, bountyReward, clearBounty, creatureName, currentObjective, flag, gatesFor, getBounty, getOwResume, getStory, getVenue, giveEquip, pendingBeats, setLoc, setOwResume, setVenue, Q_TOLLER, Q_TOLLER_THANKS, Q_WALL_REPAIR, type DialogSeq, type Gate, type MapId, type StoryStep, type WorldBeat } from "./story";
+import { playBgm, sfx } from "./audio";
+import { activeParty, addMarks, assignBounty, awardXp, bountyReward, clearBounty, creatureName, currentObjective, flag, gatesFor, getBounty, getOwResume, getStory, getVenue, giveEquip, partyNeedsRest, pendingBeats, restParty, setLoc, setOwResume, setVenue, Q_TOLLER, Q_TOLLER_THANKS, Q_WALL_REPAIR, type DialogSeq, type Gate, type MapId, type StoryStep, type WorldBeat } from "./story";
 
 const W = 384;   // camera viewport
 const H = 216;
@@ -12,7 +12,7 @@ interface EncNode { x: number; y: number; enemies: string[]; id: string; boss?: 
 interface Chest { x: number; y: number; id: string; equip?: string; xp?: number; }
 interface Rect { x: number; y: number; w: number; h: number; }
 // a person/spot you press Z near to start an (overlay) conversation, gated by flags
-interface Interactable { x: number; y: number; sprite?: string; label?: string; labelColor?: number; quest?: () => boolean; active: () => boolean; seq: () => DialogSeq | null; }
+interface Interactable { x: number; y: number; sprite?: string; label?: string; labelColor?: number; prompt?: string; quest?: () => boolean; active: () => boolean; seq: () => DialogSeq | null; action?: () => void; }
 // a building doorway: walk onto it to enter the named interior
 interface Door { x: number; y: number; w: number; h: number; interior: string; }
 type ShopKind = "item" | "equip";
@@ -66,6 +66,7 @@ export class OverworldScene extends Phaser.Scene {
   private chestViews: { x: number; y: number; ch: Chest; flag: string; img: Phaser.GameObjects.Container }[] = [];
   private interactables: Interactable[] = [];
   private talkViews: { ia: Interactable; marker: Phaser.GameObjects.Text }[] = [];
+  private resting = false; // mid clinic-rest fade (suppresses input)
   private breachDebris?: Phaser.GameObjects.Graphics;
   private breachPatch?: Phaser.GameObjects.Graphics;
   private doors: Door[] = [];
@@ -276,7 +277,11 @@ export class OverworldScene extends Phaser.Scene {
       this.solids.push({ x: W / 2 - 26, y: 70, w: 52, h: 12 });
       this.npc(W / 2, 66, def.vendor ?? "villager2");
       this.add.text(W / 2, 30, def.vendorName ?? "Clinic", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(def.sign) }).setOrigin(0.5).setDepth(56);
-      this.interactables = [{ x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null }];
+      // sleep on the first cot to restore the whole party's HP/MP
+      this.interactables = [
+        { x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null },
+        { x: 56, y: 132, label: "REST", labelColor: 0x7fe0a0, prompt: "rest", active: () => true, seq: () => null, action: () => this.restAtClinic() },
+      ];
     } else if (def?.line) {
       this.npc(W / 2, 78, def.vendor ?? "elder");
       this.interactables = [{ x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null }];
@@ -538,6 +543,23 @@ export class OverworldScene extends Phaser.Scene {
     this.tweens.add({ targets: this.toast, alpha: 0, delay: 1600, duration: 500 });
   }
 
+  // Sleep at a clinic cot: a short fade-to-black, then the whole party wakes fully restored.
+  private restAtClinic() {
+    if (this.resting) return;
+    if (!partyNeedsRest()) { sfx("cancel"); this.showToast("The party is already well rested."); return; }
+    this.resting = true;
+    this.prompt.setVisible(false);
+    sfx("confirm");
+    this.cameras.main.fadeOut(450, 0, 0, 0);
+    this.cameras.main.once("camerafadeoutcomplete", () => {
+      restParty();
+      sfx("heal");
+      this.cameras.main.fadeIn(550, 0, 0, 0);
+      this.showToast("The party rests... HP and MP fully restored!");
+      this.time.delayedCall(650, () => { this.resting = false; });
+    });
+  }
+
   // ---------------- collision ----------------
   private blocked(x: number, y: number): boolean {
     for (const s of this.solids) {
@@ -746,8 +768,9 @@ export class OverworldScene extends Phaser.Scene {
     for (const tv of this.talkViews) {
       if (tv.ia.active() && Phaser.Math.Distance.Between(this.px, this.py, tv.ia.x, tv.ia.y) < 28) {
         onTalker = true;
-        this.prompt.setText("Z: talk").setVisible(true).setPosition(tv.ia.x, tv.ia.y - 28);
+        this.prompt.setText(`Z: ${tv.ia.prompt ?? "talk"}`).setVisible(true).setPosition(tv.ia.x, tv.ia.y - 28);
         if (Phaser.Input.Keyboard.JustDown(this.keyZ)) {
+          if (tv.ia.action) { tv.ia.action(); return; }
           const seq = tv.ia.seq();
           if (seq) { this.scene.launch("dialogue", { overlay: true, seq, bg: "clinic" }); this.scene.pause(); return; }
         }

@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { ABIL, EQUIP, PARTY_DEFS, equipBonus, statsAtLevel, type EquipSlot } from "./data";
-import { equipItem, getBnd, getStory, stashFor, unequipItem } from "./story";
+import { equipItem, getBnd, getCurHp, getCurMp, getStory, stashFor, unequipItem } from "./story";
 import { sfx } from "./audio";
 
 const W = 384;
@@ -113,8 +113,8 @@ export class PartyMenuScene extends Phaser.Scene {
     this.detail.add(this.add.image(X0 + 10, 64, SPRITE_KEY[def.theme] ?? id).setOrigin(0.5, 1));
     this.mk(X0 + 30, 30, def.name, PAL.gold);
     this.mk(X0 + 30, 42, `${def.job ?? "—"}   Lv ${lvl}`, PAL.steelHi);
-    this.mk(X0 + 30, 54, `HP ${s.maxHp + eq.hp}`, PAL.green);
-    this.mk(X0 + 30, 64, `MP ${s.maxMp + eq.mp}`, PAL.cyan);
+    this.mk(X0 + 30, 54, `HP ${getCurHp(id)}/${s.maxHp + eq.hp}`, PAL.green);
+    this.mk(X0 + 30, 64, `MP ${getCurMp(id)}/${s.maxMp + eq.mp}`, PAL.cyan);
     const stat = (l: string, b: number, bo: number) => `${l} ${b + bo}${bo ? `(+${bo})` : ""}`;
     this.mk(X0 + 2, 78, stat("ATK", s.ATK, eq.ATK)); this.mk(X0 + 92, 78, stat("SPD", s.SPD, eq.SPD));
     this.mk(X0 + 2, 88, stat("DEF", s.DEF, eq.DEF)); this.mk(X0 + 92, 88, stat("LCK", s.LCK, eq.LCK));

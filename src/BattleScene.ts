@@ -3,7 +3,7 @@ import { ABIL, CONDUIT_PULSES, ENEMY_DEFS, ITEMS, STATUS, type AbilityDef, type 
 import { Battle, Combatant } from "./combat";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { RUN, applyLevels, clearSave, defForParty, getRun, restParty, saveRun } from "./run";
-import { addBountyKills, addMarks, awardXp, getBnd, getEquip, getLevel, getStory, giveEquip, saveStory, XP_MULT, type BattleConfig } from "./story";
+import { addBountyKills, addMarks, awardXp, getBnd, getCurHp, getCurMp, getEquip, getLevel, getStory, giveEquip, saveStory, setCurHpMp, XP_MULT, type BattleConfig } from "./story";
 import { playBgm, sfx } from "./audio";
 
 const W = 384;
@@ -82,7 +82,11 @@ export class BattleScene extends Phaser.Scene {
       const sb = this.cfg;
       // No floor-clamp: the party fights at its real, earned level. Skip too many
       // fights and you'll be under-leveled — grind the field / optional encounters.
-      const party = sb.party.map((id, i) => new Combatant(defForParty(id), "party", i, { level: getLevel(id), bnd: getBnd(id), equip: getEquip(id) }));
+      const party = sb.party.map((id, i) => {
+        const cb = new Combatant(defForParty(id), "party", i, { level: getLevel(id), hp: getCurHp(id), mp: getCurMp(id), bnd: getBnd(id), equip: getEquip(id) });
+        if (cb.hp <= 0) cb.alive = false; // KO'd from a previous fight — needs reviving / resting
+        return cb;
+      });
       const enemies = sb.enemies.map((id, i) => new Combatant(ENEMY_DEFS[id], "enemy", i));
       // share the persistent story inventory so bought consumables are usable (and spent)
       this.battle = new Battle(party, enemies, { canEscape: sb.escape !== false, inventory: getStory().inventory });
@@ -420,7 +424,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.phase === "defeat") { if (confirm) { if (this.cfg) this.scene.restart({ story: this.cfg }); else this.scene.start("title"); } return; }
     if (this.phase === "escaped") {
       if (confirm) {
-        if (this.cfg) this.returnToWorld();          // fled -> back into the world where you were
+        if (this.cfg) { this.persistPartyPools(); this.returnToWorld(); }          // fled -> back into the world where you were
         else this.scene.start("title");
       }
       return;
@@ -641,9 +645,15 @@ export class BattleScene extends Phaser.Scene {
 
   private rewardLines: string[] = [];
 
+  // persist each fighter's HP/MP back into the story so wounds carry into the next battle
+  private persistPartyPools() {
+    for (const u of this.battle.party) setCurHpMp(u.id, u.alive ? u.hp : 0, u.mp);
+  }
+
   private storyWin() {
     this.phase = "busy"; this.refreshBottom();
     const cfg = this.cfg!;
+    this.persistPartyPools();
     // award XP to the party that fought
     const xp = Math.round(cfg.enemies.reduce((a, id) => a + (ENEMY_DEFS[id]?.xp ?? 0), 0) * XP_MULT);
     const marks = cfg.enemies.reduce((a, id) => { const m = ENEMY_DEFS[id]?.marks ?? [0, 0]; return a + Math.floor((m[0] + m[1]) / 2); }, 0);

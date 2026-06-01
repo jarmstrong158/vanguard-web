@@ -1,6 +1,6 @@
 // Act 1 opening — story flow + dialogue, ported from vanguard/data/dialog/*.tres.
 import type Phaser from "phaser";
-import { ENEMY_DEFS, EQUIP, PARTY_DEFS, START_INVENTORY, type EquipSet, type EquipSlot } from "./data";
+import { ENEMY_DEFS, EQUIP, PARTY_DEFS, START_INVENTORY, equipBonus, statsAtLevel, type EquipSet, type EquipSlot } from "./data";
 
 export interface Line { speaker?: string; text: string; setFlags?: string[]; partyAdd?: string; auto?: boolean; wait?: number; giveXp?: number; giveEquip?: string; }
 export interface DialogSeq { id: string; context: string; lines: Line[]; }
@@ -310,7 +310,10 @@ export const STORY: StoryStep[] = [
 ];
 
 // ---- story state + persistence ----
-export interface Prog { level: number; xp: number; }
+// hp/mp are the member's CURRENT pool, persisted between battles. undefined = full
+// (a fresh member, or one that has rested). Story battles carry wounds forward; the
+// clinic and other rest points restore them.
+export interface Prog { level: number; xp: number; hp?: number; mp?: number; }
 export interface Bounty { target: string; need: number; have: number; }
 export interface StoryState { step: number; loc: MapId; flags: Record<string, boolean>; party: string[]; prog: Record<string, Prog>; equip: Record<string, EquipSet>; marks: number; inventory: Record<string, number>; ownedEquip: string[]; bounty: Bounty | null; }
 const KEY = "vanguard.story.v1";
@@ -391,6 +394,27 @@ export const xpToNext = (lvl: number) => 40 + lvl * 20;
 export const XP_MULT = 1.5; // tuned via sim/sim.ts
 
 export function getLevel(id: string): number { return getStory().prog[id]?.level ?? 1; }
+// ---- persistent HP/MP pools (current values carried between story battles) ----
+const partyDef = (id: string) => PARTY_DEFS.find((d) => d.id === id);
+export function maxHpFor(id: string): number { const d = partyDef(id); if (!d) return 1; return statsAtLevel(d, getLevel(id)).maxHp + equipBonus(getEquip(id)).hp; }
+export function maxMpFor(id: string): number { const d = partyDef(id); if (!d) return 0; return statsAtLevel(d, getLevel(id)).maxMp + equipBonus(getEquip(id)).mp; }
+// current HP/MP; undefined pool means "full" (clamped to max in case equipment/level changed)
+export function getCurHp(id: string): number { const p = getStory().prog[id]; const mx = maxHpFor(id); return p?.hp != null ? Math.min(p.hp, mx) : mx; }
+export function getCurMp(id: string): number { const p = getStory().prog[id]; const mx = maxMpFor(id); return p?.mp != null ? Math.min(p.mp, mx) : mx; }
+// write back HP/MP after a battle so wounds (and spent MP) persist into the next fight
+export function setCurHpMp(id: string, hp: number, mp: number) {
+  const st = getStory(); const p = st.prog[id] ?? (st.prog[id] = { level: 1, xp: 0 });
+  p.hp = Math.max(0, Math.min(hp, maxHpFor(id))); p.mp = Math.max(0, Math.min(mp, maxMpFor(id)));
+  saveStory(st);
+}
+// full rest: restore every party member to max HP/MP (clinic cot, inns, etc.)
+export function restParty() {
+  const st = getStory();
+  for (const id of st.party) { const p = st.prog[id] ?? (st.prog[id] = { level: 1, xp: 0 }); p.hp = maxHpFor(id); p.mp = maxMpFor(id); }
+  saveStory(st);
+}
+// does anyone in the active party need patching up? (gates the clinic's "rest" prompt)
+export function partyNeedsRest(): boolean { return activeParty().some((id) => getCurHp(id) < maxHpFor(id) || getCurMp(id) < maxMpFor(id)); }
 // Effective Bond: design says BND grows +1 per level-up (atop story/bond-quest jumps).
 // Maren is the Conduit source and has no BND (def.bnd undefined) -> returns undefined.
 export function getBnd(id: string): number | undefined {
