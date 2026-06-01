@@ -428,9 +428,11 @@ export function activeParty(): string[] { return getStory().party.slice(0, 4); }
 export function flag(f: string): boolean { return !!getStory().flags[f]; }
 export function setFlag(f: string) { const st = getStory(); st.flags[f] = true; saveStory(st); }
 
-// transient (not saved): where to drop the player when re-entering an overworld map after a fight
-let owResume: { map: string; x: number; y: number } | null = null;
-export function setOwResume(p: { map: string; x: number; y: number } | null) { owResume = p; }
+// transient (not saved): where to drop the player when re-entering a map/venue after a fight.
+// `venue` distinguishes a region (null) from an interior/field overlay so a field encounter
+// returns you to where you fought, not the field entrance.
+let owResume: { map: string; x: number; y: number; venue?: string | null } | null = null;
+export function setOwResume(p: { map: string; x: number; y: number; venue?: string | null } | null) { owResume = p; }
 export function getOwResume() { return owResume; }
 
 // transient (not saved): which building interior the overworld should render instead of the

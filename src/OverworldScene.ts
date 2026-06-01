@@ -123,11 +123,15 @@ export class OverworldScene extends Phaser.Scene {
       this.renderNodes();
       this.renderChests();
       this.renderWorld();
-      // resume at the spot we left from (after a fight / exiting a building / arriving via a gate)
-      const res = getOwResume();
-      if (res && res.map === this.map) { this.px = res.x; this.py = res.y; setOwResume(null); }
       bannerText = currentObjective();
       hint = "Arrows: move    Z: talk/act    walk into a gate to travel    Enter: party";
+    }
+    // resume at the spot we left from (after a fight / exiting a building / arriving via a gate).
+    // venue-aware so a field/interior random encounter returns the player to where they fought
+    // rather than the venue's default entrance.
+    const res = getOwResume();
+    if (res && res.map === this.map && (res.venue ?? null) === (this.venue ?? null)) {
+      this.px = res.x; this.py = res.y; setOwResume(null);
     }
     this.renderInteractables();
 
@@ -574,7 +578,7 @@ export class OverworldScene extends Phaser.Scene {
       this.encDist += moved;
       if (this.encDist >= this.encThreshold) {
         this.done = true;
-        setOwResume({ map: this.map, x: this.px, y: this.py });
+        setOwResume({ map: this.map, x: this.px, y: this.py, venue: this.venue ?? null });
         const grp = this.encGroups[Math.floor(Math.random() * this.encGroups.length)];
         this.scene.start("battle", { story: { party: activeParty(), enemies: grp, level: 1, intro: this.encIntro, escape: true, field: true, returnLoc: this.map } });
         return;
@@ -615,7 +619,7 @@ export class OverworldScene extends Phaser.Scene {
     for (const nv of this.nodeViews) {
       if (Phaser.Math.Distance.Between(this.px, this.py, nv.x, nv.y) < 24) {
         this.done = true;
-        setOwResume({ map: this.map, x: this.px, y: this.py }); // come back to this spot after the fight
+        setOwResume({ map: this.map, x: this.px, y: this.py, venue: this.venue ?? null }); // come back to this spot after the fight
         this.scene.start("battle", { story: { party: activeParty(), enemies: nv.n.enemies, level: 1, intro: nv.n.intro ?? (nv.n.boss ? "An optional foe guards a hidden prize!" : "Ambush!"), escape: true, field: true, returnLoc: this.map, nodeFlag: nv.flag, rewardEquip: nv.n.rewardEquip } });
         return;
       }
@@ -719,7 +723,7 @@ export class OverworldScene extends Phaser.Scene {
       this.scene.launch("dialogue", { overlay: true, seq: beat.seq, doneFlag: beat.id, cinematic: beat.cinematic, bg });
       this.scene.pause();
     } else if (beat.battle) {
-      setOwResume({ map: this.map, x: this.px, y: this.py });
+      setOwResume({ map: this.map, x: this.px, y: this.py, venue: this.venue ?? null });
       this.scene.start("battle", { story: { party: beat.battle.party, enemies: beat.battle.enemies, level: 1, intro: beat.battle.intro, escape: beat.battle.escape ?? false, returnLoc: this.map, doneFlag: beat.id } });
     }
   }
