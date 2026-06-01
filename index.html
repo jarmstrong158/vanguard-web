@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vanguard — Battle Slice</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        margin: 0; padding: 0; height: 100%;
+        background: #100e1c;
+        display: flex; align-items: center; justify-content: center;
+        font-family: "Silkscreen", monospace;
+        overflow: hidden;
+      }
+      #game {
+        width: min(94vw, 1024px);
+        aspect-ratio: 16 / 9;
+        box-shadow: 0 16px 50px rgba(0,0,0,0.65);
+        border-radius: 4px; overflow: hidden;
+      }
+      canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
