@@ -16,7 +16,7 @@ interface Interactable { x: number; y: number; sprite?: string; label?: string; 
 // a building doorway: walk onto it to enter the named interior
 interface Door { x: number; y: number; w: number; h: number; interior: string; }
 type ShopKind = "item" | "equip";
-interface InteriorDef { name: string; sign: number; vendor?: string; vendorName?: string; shop?: ShopKind; line?: DialogSeq; }
+interface InteriorDef { name: string; sign: number; vendor?: string; vendorName?: string; shop?: ShopKind; line?: DialogSeq; clinic?: boolean; }
 
 // Flavor chatter for a plain house.
 const HOME_CHAT: DialogSeq = { id: "home_chat", context: "A Thornwall Home", lines: [
@@ -30,12 +30,19 @@ const FARMER_HINT: DialogSeq = { id: "farmer_hint", context: "Town Gossip", line
   { speaker: "Villager", text: "He's paying good coin to anyone who'll thin them out. The pasture gate's up the north road, past the clinic." },
 ]};
 
+// Maren's mother runs the village clinic.
+const CLINIC_CHAT: DialogSeq = { id: "clinic_chat", context: "Thornwall Clinic", lines: [
+  { speaker: "Renna", text: "Mind the cots, love — someone's always limping in scraped up these days." },
+  { speaker: "Renna", text: "Rest whenever you need. The hearth's warm and the kettle's on." },
+]};
+
 // Interior rooms reachable through doors. The town map is unchanged; the venue just
 // swaps what the overworld renders. Shops open the ShopScene; houses play a line.
 const INTERIORS: Record<string, InteriorDef> = {
-  thornwall_item:  { name: "PROVISIONS",  sign: 0x7fe0a0, vendor: "villager2", vendorName: "Mira",   shop: "item" },
-  thornwall_equip: { name: "ARMORY",      sign: 0xc0cbdc, vendor: "villager",  vendorName: "Garrin", shop: "equip" },
-  thornwall_home:  { name: "HOME",        sign: 0xe0c080, vendor: "elder",     vendorName: "Resident", line: HOME_CHAT },
+  thornwall_item:   { name: "PROVISIONS", sign: 0x7fe0a0, vendor: "villager2", vendorName: "Mira",     shop: "item" },
+  thornwall_equip:  { name: "ARMORY",     sign: 0xc0cbdc, vendor: "villager",  vendorName: "Garrin",   shop: "equip" },
+  thornwall_home:   { name: "HOME",       sign: 0xe0c080, vendor: "elder",     vendorName: "Resident", line: HOME_CHAT },
+  thornwall_clinic: { name: "CLINIC",     sign: 0xff8a8a, vendor: "villager2", vendorName: "Renna",    line: CLINIC_CHAT, clinic: true },
 };
 
 export class OverworldScene extends Phaser.Scene {
@@ -220,9 +227,11 @@ export class OverworldScene extends Phaser.Scene {
     g.fillStyle(0x5a4636, 1); g.fillRect(0, 0, W, 40);
     g.fillStyle(0x6a5440, 1); g.fillRect(0, 38, W, 3);
     g.fillStyle(0x4a3a2c, 1); g.fillRect(0, 0, 14, H); g.fillRect(W - 14, 0, 14, H);
-    // a warm rug
-    g.fillStyle(0x6a3a3a, 1); g.fillRoundedRect(W / 2 - 70, 120, 140, 70, 6);
-    g.fillStyle(0x7a4a4a, 1); g.fillRoundedRect(W / 2 - 62, 126, 124, 58, 5);
+    if (!def?.clinic) {
+      // a warm rug
+      g.fillStyle(0x6a3a3a, 1); g.fillRoundedRect(W / 2 - 70, 120, 140, 70, 6);
+      g.fillStyle(0x7a4a4a, 1); g.fillRoundedRect(W / 2 - 62, 126, 124, 58, 5);
+    }
     // exit doormat (bottom center) — walk onto it to leave
     const ex = W / 2;
     g.fillStyle(0x2a1f18, 1); g.fillRect(ex - 16, H - 14, 32, 14);
@@ -238,6 +247,32 @@ export class OverworldScene extends Phaser.Scene {
       this.npc(W / 2, 66, def.vendor ?? "villager2");
       this.add.text(W / 2, 30, def.vendorName ?? "Shopkeeper", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(def.sign) }).setOrigin(0.5).setDepth(56);
       this.shopVendor = { x: W / 2, y: 86, shop: def.shop };
+    } else if (def?.clinic) {
+      // clinic: pale tiled floor, a medicine shelf, two cots, and the healer at a desk
+      g.fillStyle(0x5a6470, 1); g.fillRect(14, 40, W - 28, H - 40);
+      g.fillStyle(0x66707c, 1); for (let yy = 48; yy < H; yy += 18) g.fillRect(14, yy, W - 28, 2);
+      // medicine shelves flanking the back wall (clear of the name plate)
+      const shelf = (sx: number) => {
+        g.fillStyle(0x4a3a2c, 1); g.fillRect(sx, 20, 56, 10);
+        const bottle = [0x8fd3ff, 0xf6757a, 0x7fe0a0, 0xfee761];
+        bottle.forEach((bc, i) => { g.fillStyle(bc, 1); g.fillRect(sx + 4 + i * 13, 21, 5, 8); });
+      };
+      shelf(20); shelf(W - 76);
+      // a cot (bed) helper
+      const cot = (cx: number, cy: number) => {
+        g.fillStyle(0x6a5440, 1); g.fillRect(cx - 20, cy, 40, 18);          // frame
+        g.fillStyle(0xe6e6ee, 1); g.fillRect(cx - 18, cy + 2, 36, 12);      // mattress
+        g.fillStyle(0xc7d0e0, 1); g.fillRect(cx - 16, cy + 3, 10, 8);       // pillow
+        g.fillStyle(0x9aa6b8, 1); g.fillRect(cx - 6, cy + 8, 24, 1);        // blanket fold
+        this.solids.push({ x: cx - 20, y: cy, w: 40, h: 18 });
+      };
+      cot(56, 120); cot(56, 158); cot(W - 56, 120); cot(W - 56, 158);
+      // Renna behind a small desk
+      g.fillStyle(0x3a2a1e, 1); g.fillRect(W / 2 - 26, 70, 52, 12); g.fillStyle(0x6a4a30, 1); g.fillRect(W / 2 - 26, 68, 52, 4);
+      this.solids.push({ x: W / 2 - 26, y: 70, w: 52, h: 12 });
+      this.npc(W / 2, 66, def.vendor ?? "villager2");
+      this.add.text(W / 2, 30, def.vendorName ?? "Clinic", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(def.sign) }).setOrigin(0.5).setDepth(56);
+      this.interactables = [{ x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null }];
     } else if (def?.line) {
       this.npc(W / 2, 78, def.vendor ?? "elder");
       this.interactables = [{ x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null }];
@@ -271,10 +306,10 @@ export class OverworldScene extends Phaser.Scene {
     g.fillStyle(0x5a4a30, 1); for (let y = 104; y < 496; y += 12) g.fillRect(304, y, 22, 2);
     g.fillStyle(0x6b5a3a, 1); g.fillRect(40, 340, this.worldW - 80, 28);        // crossroad
 
-    // buildings
-    this.house(g, 150, 140, 0xc8b89a); // clinic (decorative)
-    g.fillStyle(0xd64b4b, 1); g.fillRect(168, 146, 2, 8); g.fillRect(165, 149, 8, 2);
-    this.add.text(170, 132, "CLINIC", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xfff0d0) }).setOrigin(0.5);
+    // buildings (all enterable)
+    this.building(g, 150, 138, "thornwall_clinic", 0xcfc0a8, 0xb24a3a); // Maren's mother's clinic
+    g.fillStyle(0xd64b4b, 1); g.fillRect(180, 148, 3, 11); g.fillRect(176, 152, 11, 3); // red cross
+    sign(181, 114, "CLINIC", 0xff8a8a);
     this.building(g, 70, 210, "thornwall_item", 0x6a8a64, 0x3a6a4a);  sign(101, 184, "PROVISIONS", 0x7fe0a0);
     this.building(g, 470, 200, "thornwall_equip", 0x8a8a96, 0x52505a); sign(501, 174, "ARMORY", 0xc0cbdc);
     this.building(g, 96, 410, "thornwall_home", 0x8a7a5a, 0x6b3a2a);   sign(127, 384, "HOME", 0xe0c080);
