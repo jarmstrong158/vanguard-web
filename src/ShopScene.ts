@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { PAL, bakeAll, ffWindow } from "./sprites";
 import { ITEMS, ITEM_PRICE, SHOP_ITEMS, EQUIP, SHOP_EQUIP } from "./data";
 import { addItem, addOwnedEquip, getInventory, getMarks, spendMarks } from "./story";
+import { sfx } from "./audio";
 
 const W = 384;
 const H = 216;
@@ -91,13 +92,13 @@ export class ShopScene extends Phaser.Scene {
   update() {
     const jd = (k: Phaser.Input.Keyboard.Key) => Phaser.Input.Keyboard.JustDown(k);
     const n = this.rows.length;
-    if (jd(this.cursors.up!)) { this.idx = (this.idx + n - 1) % n; this.draw(); }
-    if (jd(this.cursors.down!)) { this.idx = (this.idx + 1) % n; this.draw(); }
+    if (jd(this.cursors.up!)) { this.idx = (this.idx + n - 1) % n; this.draw(); sfx("move"); }
+    if (jd(this.cursors.down!)) { this.idx = (this.idx + 1) % n; this.draw(); sfx("move"); }
     if (jd(this.keyZ)) {
       const r = this.rows[this.idx];
-      if (getMarks() < r.price) { this.toast("Not enough Marks!", false); }
-      else if (spendMarks(r.price)) { this.toast(r.buy()); this.draw(); }
+      if (getMarks() < r.price) { this.toast("Not enough Marks!", false); sfx("error"); }
+      else if (spendMarks(r.price)) { this.toast(r.buy()); this.draw(); sfx("buy"); }
     }
-    if (jd(this.keyX)) { this.scene.stop(); this.scene.resume("overworld"); }
+    if (jd(this.keyX)) { sfx("cancel"); this.scene.stop(); this.scene.resume("overworld"); }
   }
 }

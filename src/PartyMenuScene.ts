@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { ABIL, EQUIP, PARTY_DEFS, equipBonus, statsAtLevel, type EquipSlot } from "./data";
 import { equipItem, getBnd, getStory, stashFor, unequipItem } from "./story";
+import { sfx } from "./audio";
 
 const W = 384;
 const H = 216;
@@ -218,6 +219,7 @@ export class PartyMenuScene extends Phaser.Scene {
   update() {
     const jd = (k: Phaser.Input.Keyboard.Key) => Phaser.Input.Keyboard.JustDown(k);
     const up = jd(this.cursors.up!), down = jd(this.cursors.down!), z = jd(this.keyZ), x = jd(this.keyX), ent = jd(this.keyEnter);
+    if (up || down) sfx("move"); else if (z || ent) sfx("confirm"); else if (x) sfx("cancel");
 
     if (this.mode === "roster") {
       if (up) { this.idx = (this.idx + this.ids.length - 1) % this.ids.length; this.redraw(); }

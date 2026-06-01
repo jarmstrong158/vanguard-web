@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
+import { playBgm } from "./audio";
 import { activeParty, addMarks, assignBounty, awardXp, bountyReward, clearBounty, creatureName, currentObjective, flag, gatesFor, getBounty, getOwResume, getStory, getVenue, giveEquip, pendingBeats, setLoc, setOwResume, setVenue, Q_TOLLER, Q_TOLLER_THANKS, Q_WALL_REPAIR, type DialogSeq, type Gate, type MapId, type StoryStep, type WorldBeat } from "./story";
 
 const W = 384;   // camera viewport
@@ -130,6 +131,8 @@ export class OverworldScene extends Phaser.Scene {
     this.toast = this.add.text(W / 2, 30, "", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.gold) }).setOrigin(0.5).setScrollFactor(0).setDepth(90);
 
     this.prompt = this.add.text(0, 0, this.needsTalk ? "Z: talk" : "go", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.gold) }).setOrigin(0.5).setDepth(60).setVisible(false);
+    // region-appropriate music (towns calm, wilderness/pasture adventurous)
+    playBgm(this.venue === "field" ? "field" : this.venue ? "town" : (this.map === "marsh" || this.map === "hollows") ? "field" : "town");
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keyZ = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.keyMenu = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);

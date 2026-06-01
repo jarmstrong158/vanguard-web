@@ -4,6 +4,7 @@ import { Battle, Combatant } from "./combat";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { RUN, applyLevels, clearSave, defForParty, getRun, restParty, saveRun } from "./run";
 import { addBountyKills, addMarks, awardXp, getBnd, getEquip, getLevel, getStory, giveEquip, saveStory, XP_MULT, type BattleConfig } from "./story";
+import { playBgm, sfx } from "./audio";
 
 const W = 384;
 const H = 216;
@@ -85,6 +86,7 @@ export class BattleScene extends Phaser.Scene {
       const enemies = sb.enemies.map((id, i) => new Combatant(ENEMY_DEFS[id], "enemy", i));
       // share the persistent story inventory so bought consumables are usable (and spent)
       this.battle = new Battle(party, enemies, { canEscape: sb.escape !== false, inventory: getStory().inventory });
+      playBgm(enemies.some((e) => e.def.isBoss) ? "boss" : "battle");
       introMsg = sb.intro;
     } else {
       const run = getRun();
@@ -648,6 +650,7 @@ export class BattleScene extends Phaser.Scene {
     const ups = awardXp(cfg.party, xp);
     if (marks > 0) addMarks(marks);
     addBountyKills(cfg.enemies); // credit any defeated creatures toward the farmer's bounty
+    sfx(ups.length ? "levelup" : "victory");
     this.rewardLines = [`+${xp} XP${marks > 0 ? `   +${marks} Marks` : ""}`, ...ups.map((u) => `${u.id.toUpperCase()} reached Lv ${u.level}!`)];
     if (cfg.nodeFlag) getStory().flags[cfg.nodeFlag] = true;  // clear the on-map node
     if (cfg.doneFlag) getStory().flags[cfg.doneFlag] = true;  // mark the story beat complete
@@ -723,9 +726,10 @@ export class BattleScene extends Phaser.Scene {
     if (ab.effect === "physical" || ab.effect === "magical") {
       if (!this.battle.rollHit(actor)) { this.popup(cx, top, "MISS", PAL.steelHi); await this.delay(150); return; }
       const r = this.battle.calc(actor, target, ab);
-      if (r.healing > 0) { this.battle.heal(target, r.healing); this.popup(cx, top, `+${r.healing}`, PAL.green); }
+      if (r.healing > 0) { this.battle.heal(target, r.healing); this.popup(cx, top, `+${r.healing}`, PAL.green); sfx("heal"); }
       else {
         this.battle.takeDamage(target, r.damage);
+        sfx(r.crit || r.label === "WEAK" ? "crit" : "hit");
         tv.img.setTintFill(0xffffff);
         this.time.delayedCall(110, () => tv.img.clearTint());
         this.tweens.add({ targets: tv.img, x: tv.baseX + (actor.side === "party" ? -1 : 1) * 6, duration: 60, yoyo: true });

@@ -6,6 +6,7 @@ import { DialogueScene } from "./DialogueScene";
 import { OverworldScene } from "./OverworldScene";
 import { PartyMenuScene } from "./PartyMenuScene";
 import { ShopScene } from "./ShopScene";
+import { resumeAudio, toggleMute } from "./audio";
 
 function start() {
   const game = new Phaser.Game({
@@ -28,8 +29,9 @@ function start() {
     const cv = game.canvas;
     cv.setAttribute("tabindex", "0");
     cv.style.outline = "none";
-    const grab = () => cv.focus();
+    const grab = () => { cv.focus(); resumeAudio(); }; // start audio on first gesture (browser policy)
     cv.addEventListener("pointerdown", grab);
+    window.addEventListener("keydown", (e) => { resumeAudio(); if (e.key === "m" || e.key === "M") toggleMute(); });
     window.addEventListener("focus", grab);
     grab();
   });

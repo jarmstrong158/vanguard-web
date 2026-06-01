@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { PAL, bakeAll, ffWindow } from "./sprites";
 import { hasStorySave, loadStory, newStory, setStory, startStep } from "./story";
+import { playBgm, sfx } from "./audio";
 
 const W = 384;
 const H = 216;
@@ -18,6 +19,7 @@ export class TitleScene extends Phaser.Scene {
 
   create() {
     bakeAll(this);
+    playBgm("title");
     // backdrop
     const g = this.add.graphics();
     g.fillGradientStyle(PAL.sky1, PAL.sky1, PAL.sky3, PAL.sky3, 1); g.fillRect(0, 0, W, H);
@@ -59,9 +61,10 @@ export class TitleScene extends Phaser.Scene {
 
   update() {
     if (Phaser.Input.Keyboard.JustDown(this.cursors.up!) || Phaser.Input.Keyboard.JustDown(this.cursors.down!)) {
-      this.index = (this.index + 1) % this.options.length; this.drawMenu();
+      this.index = (this.index + 1) % this.options.length; this.drawMenu(); sfx("move");
     }
     if (Phaser.Input.Keyboard.JustDown(this.keyZ)) {
+      sfx("confirm");
       const opt = this.options[this.index];
       if (opt === "Continue") { const s = loadStory(); if (s) setStory(s); }
       else { setStory(newStory()); }
