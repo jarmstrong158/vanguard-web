@@ -60,30 +60,61 @@ export function sfx(name: SfxName) {
   for (const s of seq) { tone(master, mtof(s.n), t, s.d, s.type, s.vol); t += s.d * 0.7; }
 }
 
+// ---------------- percussion (filtered noise) ----------------
+let noiseBuf: AudioBuffer | null = null;
+function noiseBuffer(): AudioBuffer {
+  const c = ctx!;
+  if (!noiseBuf) { const len = Math.floor(c.sampleRate * 0.3); noiseBuf = c.createBuffer(1, len, c.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; }
+  return noiseBuf;
+}
+function perc(kind: "k" | "h" | "s", t0: number, vol: number) {
+  const c = ctx!; if (!musicGain) return;
+  if (kind === "k") {
+    const o = c.createOscillator(); const g = c.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.12);
+    g.gain.setValueAtTime(vol * 1.1, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
+    o.connect(g); g.connect(musicGain); o.start(t0); o.stop(t0 + 0.18);
+  } else {
+    const src = c.createBufferSource(); src.buffer = noiseBuffer();
+    const f = c.createBiquadFilter(); f.type = kind === "s" ? "bandpass" : "highpass"; f.frequency.value = kind === "s" ? 1600 : 7500;
+    const g = c.createGain(); const dur = kind === "s" ? 0.13 : 0.035;
+    g.gain.setValueAtTime((kind === "s" ? 0.5 : 0.35) * vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(musicGain); src.start(t0); src.stop(t0 + dur + 0.02);
+  }
+}
+
 // ---------------- BGM ----------------
-interface Track { tempo: number; lead: (number | null)[]; bass: (number | null)[]; leadType?: OscillatorType; }
-const T = { tempo: 116 };
+// Tracks are 32 eighth-notes (4 bars) with lead + bass + optional harmony, plus a
+// procedural drum groove. On every other loop the lead jumps an octave for an A/A'
+// "verse/chorus" feel, so a loop spans 8 bars before truly repeating.
+interface Track { tempo: number; leadType?: OscillatorType; lead: (number | null)[]; bass: (number | null)[]; harm?: (number | null)[]; drums?: number; }
+const _ = null;
 const BGM: Record<string, Track> = {
-  // wistful major — title / quiet
-  title: { tempo: 84, leadType: "triangle",
-    lead: [76, null, 79, null, 83, null, 79, null, 81, null, 79, null, 76, null, null, null],
-    bass: [40, null, 47, null, 45, null, 47, null, 41, null, 48, null, 40, null, 47, null] },
-  // warm, homey village
-  town: { tempo: T.tempo, leadType: "square",
-    lead: [72, 76, 79, 76, 74, 77, 81, 77, 72, 76, 79, 84, 83, 81, 79, null],
-    bass: [48, null, 55, null, 53, null, 55, null, 50, null, 57, null, 55, null, 52, null] },
-  // open-road adventure
-  field: { tempo: 126, leadType: "square",
-    lead: [69, 72, 74, 76, 74, 72, 69, 67, 65, 67, 69, 72, 74, 72, 69, null],
-    bass: [41, 41, 48, 48, 45, 45, 41, 41, 38, 38, 45, 45, 41, 41, 43, 43] },
-  // driving battle theme (A minor)
-  battle: { tempo: 150, leadType: "square",
-    lead: [69, 71, 72, 76, 72, 71, 69, 67, 69, 72, 76, 79, 76, 72, 69, 67],
-    bass: [33, 40, 33, 40, 36, 43, 36, 43, 29, 36, 29, 36, 33, 40, 33, 40] },
-  // tense boss
-  boss: { tempo: 160, leadType: "sawtooth",
-    lead: [68, 68, 71, 68, 67, 67, 70, 67, 68, 71, 73, 75, 74, 71, 68, 66],
-    bass: [32, 32, 32, 39, 31, 31, 31, 38, 32, 32, 35, 35, 28, 28, 31, 31] },
+  // reflective, sparse, Am — over the title screen
+  title: { tempo: 82, leadType: "triangle", drums: 0,
+    lead: [76, _, 79, _, 81, _, 79, _, 76, _, 72, _, 74, _, _, _, 77, _, 81, _, 84, _, 81, _, 79, _, 76, _, 74, _, _, _],
+    bass: [45, _, _, _, 52, _, _, _, 41, _, _, _, 48, _, _, _, 48, _, _, _, 55, _, _, _, 43, _, _, _, 50, _, _, _],
+    harm: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] },
+  // warm village waltz-y tune — C Am F G / C F G C
+  town: { tempo: 120, leadType: "square", drums: 0.5,
+    lead: [72, 76, 79, 83, 81, 79, 76, 74, 72, 74, 76, 72, 69, 71, 72, _, 77, 81, 84, 81, 79, 77, 76, 74, 79, 76, 74, 71, 72, _, _, _],
+    bass: [48, _, 55, _, 48, _, 55, _, 45, _, 52, _, 45, _, 52, _, 41, _, 48, _, 41, _, 48, _, 43, _, 50, _, 48, _, 55, _],
+    harm: [79, _, _, _, 76, _, _, _, 76, _, _, _, 72, _, _, _, 84, _, _, _, 81, _, _, _, 83, _, _, _, 79, _, _, _] },
+  // upbeat open-road adventure — F C Dm Bb (bright)
+  field: { tempo: 132, leadType: "square", drums: 0.6,
+    lead: [77, 81, 84, 81, 79, 77, 76, 77, 72, 76, 79, 76, 74, 72, 71, 72, 74, 77, 81, 77, 76, 74, 72, 74, 70, 74, 77, 74, 72, 71, 69, _],
+    bass: [41, 48, 41, 48, 36, 43, 36, 43, 38, 45, 38, 45, 34, 41, 34, 41, 41, 48, 41, 48, 36, 43, 36, 43, 38, 45, 38, 45, 43, 43, 43, 43],
+    harm: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] },
+  // driving battle theme — Am F G E
+  battle: { tempo: 152, leadType: "square", drums: 0.85,
+    lead: [69, 72, 76, 72, 71, 69, 67, 69, 65, 69, 72, 69, 67, 65, 64, 65, 67, 71, 74, 71, 69, 67, 66, 67, 68, 71, 68, 67, 64, 67, 71, 76],
+    bass: [33, 40, 33, 40, 33, 40, 33, 40, 29, 36, 29, 36, 29, 36, 29, 36, 31, 38, 31, 38, 31, 38, 31, 38, 28, 35, 28, 35, 28, 35, 28, 35],
+    harm: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] },
+  // tense, chromatic boss theme — Dm / diminished pushes
+  boss: { tempo: 164, leadType: "sawtooth", drums: 1,
+    lead: [74, 74, 77, 74, 73, 73, 75, 73, 74, 77, 79, 81, 80, 77, 74, 72, 74, 74, 77, 79, 78, 77, 75, 74, 73, 75, 77, 78, 79, 81, 80, 78],
+    bass: [38, 38, 45, 38, 37, 37, 44, 37, 38, 38, 45, 38, 33, 33, 40, 33, 38, 38, 45, 38, 37, 37, 44, 37, 35, 35, 42, 35, 38, 45, 38, 45],
+    harm: [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] },
 };
 
 let bgmTimer: ReturnType<typeof setInterval> | null = null;
@@ -96,14 +127,26 @@ export function playBgm(name: string) {
   const tr = BGM[name]; if (!tr) { currentTrack = ""; return; }
   currentTrack = name;
   const stepDur = 60 / tr.tempo / 2; // eighth notes
+  const len = tr.lead.length;
   let i = 0;
   const tick = () => {
     if (!ctx || !musicGain) return;
     const t = ctx.currentTime + 0.02;
-    const ln = tr.lead[i % tr.lead.length];
-    const bn = tr.bass[i % tr.bass.length];
-    if (ln != null) tone(musicGain, mtof(ln), t, stepDur * 0.92, tr.leadType ?? "square", 0.2);
-    if (bn != null) tone(musicGain, mtof(bn), t, stepDur * 0.92, "triangle", 0.22);
+    const step = i % len;
+    const chorus = Math.floor(i / len) % 2 === 1;  // every other pass: lead up an octave
+    const ln = tr.lead[step];
+    if (ln != null) tone(musicGain, mtof(ln + (chorus ? 12 : 0)), t, stepDur * 0.9, tr.leadType ?? "square", chorus ? 0.16 : 0.2);
+    const bn = tr.bass[step];
+    if (bn != null) tone(musicGain, mtof(bn), t, stepDur * 1.5, "triangle", 0.22);
+    const hn = tr.harm?.[step];
+    if (hn != null) tone(musicGain, mtof(hn), t, stepDur * 1.8, "triangle", 0.09);
+    // drum groove: kick on the beat, snare on the backbeat, hats on offbeats
+    if (tr.drums) {
+      const v = tr.drums;
+      if (step % 4 === 0) perc("k", t, v);
+      if (step % 8 === 4) perc("s", t, v);
+      if (step % 2 === 1) perc("h", t, v * 0.7);
+    }
     i++;
   };
   tick();
