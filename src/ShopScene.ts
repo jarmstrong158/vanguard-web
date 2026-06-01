@@ -21,6 +21,7 @@ export class ShopScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyZ!: Phaser.Input.Keyboard.Key;
   private keyX!: Phaser.Input.Keyboard.Key;
+  private keyEnter!: Phaser.Input.Keyboard.Key;
 
   constructor() { super("shop"); }
 
@@ -46,7 +47,10 @@ export class ShopScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keyZ = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
     this.keyX = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X);
-    this.add.text(W / 2, H - 9, "↑↓ choose    Z: buy    X: leave", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.steelHi) }).setOrigin(0.5);
+    this.keyEnter = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+    // coming back from the party menu: clear held keys so we don't instantly re-open / buy
+    this.events.on(Phaser.Scenes.Events.RESUME, () => { this.keyZ.reset(); this.keyX.reset(); this.keyEnter.reset(); });
+    this.add.text(W / 2, H - 9, "↑↓ choose    Z: buy    Enter: menu    X: leave", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.steelHi) }).setOrigin(0.5);
   }
 
   private buildRows() {
@@ -99,6 +103,7 @@ export class ShopScene extends Phaser.Scene {
       if (getMarks() < r.price) { this.toast("Not enough Marks!", false); sfx("error"); }
       else if (spendMarks(r.price)) { this.toast(r.buy()); this.draw(); sfx("buy"); }
     }
+    if (jd(this.keyEnter)) { this.scene.launch("partymenu", { from: "shop" }); this.scene.pause(); return; }
     if (jd(this.keyX)) { sfx("cancel"); this.scene.stop(); this.scene.resume("overworld"); }
   }
 }

@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { ABIL, EQUIP, PARTY_DEFS, equipBonus, statsAtLevel, type EquipSlot } from "./data";
-import { equipItem, getBnd, getCurHp, getCurMp, getStory, stashFor, unequipItem } from "./story";
+import { equipItem, getBnd, getCurHp, getCurMp, getStory, saveStory, stashFor, unequipItem } from "./story";
 import { sfx } from "./audio";
 
 const W = 384;
@@ -10,8 +10,9 @@ const FONT = '"Silkscreen", monospace';
 const c = (n: number) => "#" + n.toString(16).padStart(6, "0");
 const X0 = 118; // right-panel content left edge
 
-type Mode = "roster" | "actions" | "equip" | "pick" | "skills" | "class";
+type Mode = "roster" | "actions" | "equip" | "pick" | "skills" | "class" | "system";
 const ACTIONS = ["Equipment", "Skills", "Class"] as const;
+const SYS = ["Save Game", "Title Screen"] as const; // system commands listed under the roster
 const SLOTS: { key: EquipSlot; label: string }[] = [
   { key: "weapon", label: "Weapon" }, { key: "armor", label: "Armor" }, { key: "accessory", label: "Accessory" },
 ];
@@ -23,6 +24,7 @@ export class PartyMenuScene extends Phaser.Scene {
   private sIdx = 0;       // equip slot
   private pIdx = 0;       // pick option
   private skIdx = 0;      // skill
+  private sysIdx = 0;     // system command
   private pickOptions: { id: string | null; label: string }[] = [];
   private ids: string[] = [];
   private detail!: Phaser.GameObjects.Container;
@@ -32,8 +34,12 @@ export class PartyMenuScene extends Phaser.Scene {
   private keyX!: Phaser.Input.Keyboard.Key;
   private keyZ!: Phaser.Input.Keyboard.Key;
   private keyEnter!: Phaser.Input.Keyboard.Key;
+  private from = "overworld"; // which scene to resume when the menu closes
+  private flash?: Phaser.GameObjects.Text;
 
   constructor() { super("partymenu"); }
+
+  init(data?: { from?: string }) { this.from = data?.from ?? "overworld"; }
 
   create() {
     bakeAll(this);
@@ -60,17 +66,19 @@ export class PartyMenuScene extends Phaser.Scene {
   }
 
   private get memberId() { return this.ids[this.idx]; }
+  private get onSystem() { return this.idx >= this.ids.length; } // the "System" row sits after the party
 
   private redraw() { this.drawList(); this.drawRight(); this.drawHint(); }
 
   private drawHint() {
     const h: Record<Mode, string> = {
-      roster: "↑↓ choose   Z: manage   Enter/X: close",
+      roster: "↑↓ choose   Z: select   Enter/X: close",
       actions: "↑↓ choose   Z: open   X: back",
       equip: "↑↓ slot   Z: change   X: back",
       pick: "↑↓ choose   Z: equip   X: back",
       skills: "↑↓ view   X: back",
       class: "X: back",
+      system: "↑↓ choose   Z: confirm   X: back",
     };
     this.hint.setText(h[this.mode]);
   }
@@ -88,6 +96,12 @@ export class PartyMenuScene extends Phaser.Scene {
       this.listBox.add(this.add.text(40, y + 2, def.name, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(sel ? PAL.gold : PAL.clothHi) }));
       this.listBox.add(this.add.text(40, y + 12, `Lv ${lvl}`, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.steelHi) }));
     });
+    // a "System" row beneath the party (save / title)
+    const sy = 32 + this.ids.length * 26;
+    const sysSel = this.onSystem;
+    const sysActive = sysSel && (this.mode === "roster" || this.mode === "system");
+    if (sysSel) { const g = this.add.graphics(); g.fillStyle(sysActive ? 0x3a6bd6 : 0x26365e, 1); g.fillRect(10, sy - 2, 92, 16); g.lineStyle(1, sysActive ? PAL.gold : PAL.steelSh, 1); g.strokeRect(10, sy - 2, 92, 16); this.listBox.add(g); }
+    this.listBox.add(this.add.text(16, sy, "System", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(sysSel ? PAL.gold : PAL.clothHi) }));
   }
 
   private mk(x: number, y: number, t: string, col = PAL.clothHi) {
@@ -102,6 +116,7 @@ export class PartyMenuScene extends Phaser.Scene {
 
   private drawRight() {
     this.detail.removeAll(true);
+    if (this.mode === "system" || (this.mode === "roster" && this.onSystem)) { this.drawSystem(); return; }
     const id = this.memberId;
     const def = PARTY_DEFS.find((d) => d.id === id)!;
     const st = getStory();
@@ -197,6 +212,34 @@ export class PartyMenuScene extends Phaser.Scene {
     const t2 = this.add.text(X0, 184, "Advanced paths & Attunements unlock as bonds deepen.", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.steelHi) }); t2.setWordWrapWidth(W - X0 - 16); this.detail.add(t2);
   }
 
+  private drawSystem() {
+    this.mk(X0, 30, "SYSTEM", PAL.gold);
+    this.mk(X0, 46, `Marks: ${getStory().marks}`, 0xfee761);
+    SYS.forEach((s, i) => {
+      const y = 78 + i * 18;
+      const sel = this.mode === "system" && i === this.sysIdx;
+      this.bar(X0, y - 2, W - X0 - 18, sel);
+      this.mk(X0 + 6, y, s, sel ? PAL.gold : PAL.clothHi);
+    });
+    this.mk(X0, 138, "Save writes your progress to this", PAL.steelHi);
+    this.mk(X0, 148, "browser. Title returns to the menu.", PAL.steelHi);
+    this.mk(X0, 178, this.mode === "system" ? "Z: confirm   X: back" : "Z: open   X: close", PAL.steelHi);
+  }
+
+  private flashMsg(text: string, col = PAL.green) {
+    this.flash?.destroy();
+    this.flash = this.add.text(W / 2, 200, text, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(col) }).setOrigin(0.5).setDepth(20);
+    this.tweens.add({ targets: this.flash, alpha: 0, delay: 1100, duration: 500 });
+  }
+
+  private doSystem() {
+    if (this.sysIdx === 0) { saveStory(getStory()); sfx("buy"); this.flashMsg("Game saved!"); }
+    else { // Title Screen — drop any paused scenes and boot the title
+      this.scene.stop("overworld"); this.scene.stop("shop"); this.scene.stop("dialogue");
+      this.scene.start("title");
+    }
+  }
+
   private openPick() {
     const id = this.memberId; const slot = SLOTS[this.sIdx].key;
     const cur = getStory().equip[id]?.[slot];
@@ -222,10 +265,16 @@ export class PartyMenuScene extends Phaser.Scene {
     if (up || down) sfx("move"); else if (z || ent) sfx("confirm"); else if (x) sfx("cancel");
 
     if (this.mode === "roster") {
-      if (up) { this.idx = (this.idx + this.ids.length - 1) % this.ids.length; this.redraw(); }
-      if (down) { this.idx = (this.idx + 1) % this.ids.length; this.redraw(); }
-      if (z) { this.mode = "actions"; this.aIdx = 0; this.redraw(); }
-      if (x || ent) { this.scene.stop(); this.scene.resume("overworld"); }
+      const total = this.ids.length + 1; // members + the System row
+      if (up) { this.idx = (this.idx + total - 1) % total; this.redraw(); }
+      if (down) { this.idx = (this.idx + 1) % total; this.redraw(); }
+      if (z) { if (this.onSystem) { this.mode = "system"; this.sysIdx = 0; } else { this.mode = "actions"; this.aIdx = 0; } this.redraw(); }
+      if (x || ent) { this.scene.stop(); this.scene.resume(this.from); }
+    } else if (this.mode === "system") {
+      if (up) { this.sysIdx = (this.sysIdx + SYS.length - 1) % SYS.length; this.redraw(); }
+      if (down) { this.sysIdx = (this.sysIdx + 1) % SYS.length; this.redraw(); }
+      if (z) this.doSystem();
+      if (x) { this.mode = "roster"; this.redraw(); }
     } else if (this.mode === "actions") {
       if (up) { this.aIdx = (this.aIdx + ACTIONS.length - 1) % ACTIONS.length; this.redraw(); }
       if (down) { this.aIdx = (this.aIdx + 1) % ACTIONS.length; this.redraw(); }

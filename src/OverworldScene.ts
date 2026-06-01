@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { playBgm, sfx } from "./audio";
-import { activeParty, addMarks, assignBounty, awardXp, bountyReward, clearBounty, creatureName, currentObjective, flag, gatesFor, getBounty, getOwResume, getStory, getVenue, giveEquip, partyNeedsRest, pendingBeats, restParty, setLoc, setOwResume, setVenue, Q_TOLLER, Q_TOLLER_THANKS, Q_WALL_REPAIR, type DialogSeq, type Gate, type MapId, type StoryStep, type WorldBeat } from "./story";
+import { activeParty, addMarks, assignBounty, awardXp, bountyReward, clearBounty, creatureName, currentObjective, flag, gatesFor, getBounty, getMarks, getOwResume, getStory, getVenue, giveEquip, partyNeedsRest, pendingBeats, restParty, setLoc, setOwResume, setVenue, spendMarks, Q_TOLLER, Q_TOLLER_THANKS, Q_WALL_REPAIR, type DialogSeq, type Gate, type MapId, type StoryStep, type WorldBeat } from "./story";
 
 const W = 384;   // camera viewport
 const H = 216;
@@ -58,6 +58,7 @@ export class OverworldScene extends Phaser.Scene {
   private bannerTxt!: Phaser.GameObjects.Text;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyZ!: Phaser.Input.Keyboard.Key;
+  private keyX!: Phaser.Input.Keyboard.Key;
   private keyMenu!: Phaser.Input.Keyboard.Key;
   private done = false;
   private nodes: EncNode[] = [];
@@ -67,6 +68,7 @@ export class OverworldScene extends Phaser.Scene {
   private interactables: Interactable[] = [];
   private talkViews: { ia: Interactable; marker: Phaser.GameObjects.Text }[] = [];
   private resting = false; // mid clinic-rest fade (suppresses input)
+  private innPrompt: { cost: number; objs: Phaser.GameObjects.GameObject[] } | null = null; // paid-inn Yes/No confirm
   private breachDebris?: Phaser.GameObjects.Graphics;
   private breachPatch?: Phaser.GameObjects.Graphics;
   private doors: Door[] = [];
@@ -153,13 +155,14 @@ export class OverworldScene extends Phaser.Scene {
     playBgm(this.venue === "field" ? "field" : this.venue ? "town" : (this.map === "marsh" || this.map === "hollows") ? "field" : "town");
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keyZ = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.keyX = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X);
     this.keyMenu = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     // When an overlay (dialogue / party menu) closes and resumes us, the keypress
     // that dismissed it can still be flagged "just down" on our keys — we were paused
     // and never consumed it. Clear it so the resumed frame doesn't instantly re-open
     // the same talk/menu (which manifested as a freeze on Toller).
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
-      this.keyZ.reset(); this.keyMenu.reset(); this.done = false;
+      this.keyZ.reset(); this.keyX.reset(); this.keyMenu.reset(); this.done = false;
       if (!this.venue) this.renderWorld();   // a beat may have completed -> refresh gates/markers/NPCs
     });
   }
@@ -420,6 +423,9 @@ export class OverworldScene extends Phaser.Scene {
     g.fillStyle(0xffd98a, 0.7); g.fillRect(72, 70, 10, 10); g.fillRect(128, 70, 10, 10);
     this.add.text(105, 30, "WAYSTATION", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xfff0d0) }).setOrigin(0.5);
     g.fillStyle(0xffcf6a, 1); g.fillCircle(300, 70, 4);
+    // a traveler's inn — rest the party for Marks
+    this.add.text(150, 132, "INN", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(55);
+    this.interactables = [this.innInteractable(150, 158, 15)];
     // (Fennick is rendered by the b_fennick story beat)
     this.px = 70; this.py = 150;
   }
@@ -435,6 +441,9 @@ export class OverworldScene extends Phaser.Scene {
     bldg(20, 90, 56, 40, 0x5a4040); bldg(300, 96, 64, 44, 0x4a3636);
     g.fillStyle(0xc0392b, 1); g.fillRect(96, 92, 14, 10); g.fillRect(250, 100, 14, 9);
     this.add.text(105, 32, "REDHOLLOW — OCCUPIED", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xe0a0a0) }).setOrigin(0.5).setDepth(60);
+    // a back-alley innkeeper still takes coin under the occupation
+    this.add.text(190, 124, "INN", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(55);
+    this.interactables = [this.innInteractable(190, 150, 25)];
     // (Senna is rendered by the b_senna story beat)
     this.px = 60; this.py = 156;
   }
@@ -450,6 +459,9 @@ export class OverworldScene extends Phaser.Scene {
     const pit = this.add.graphics(); pit.fillStyle(0x241f1a, 1); pit.fillEllipse(300, 156, 54, 22); pit.fillStyle(0x3a3026, 1); pit.fillEllipse(300, 154, 46, 16);
     this.add.image(300, 152, SPRITE_KEY.yara).setOrigin(0.5, 1).setDepth(40);
     this.add.text(300, 120, "FIGHTING PIT", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xe0b070) }).setOrigin(0.5).setDepth(55);
+    // a guild lodging house — the priciest rest, befitting the city
+    this.add.text(120, 168, "LODGE", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(55);
+    this.interactables = [this.innInteractable(120, 190, 40)];
     this.px = 50; this.py = 150; // (the b_yara beat triggers at the pit)
   }
 
@@ -544,9 +556,55 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   // Sleep at a clinic cot: a short fade-to-black, then the whole party wakes fully restored.
-  private restAtClinic() {
-    if (this.resting) return;
+  // Free rest at Maren's mother's clinic.
+  private restAtClinic() { this.tryRest(0); }
+
+  // An innkeeper NPC that rests the party for Marks (used by towns beyond Thornwall).
+  private innInteractable(x: number, y: number, cost: number, sprite = "villager2"): Interactable {
+    return { x, y, sprite, label: "Innkeeper", labelColor: 0xffd98a, prompt: `rest ${cost}M`, active: () => true, seq: () => null, action: () => this.tryRest(cost) };
+  }
+
+  // Paid inn rest in other towns. Free rests heal immediately; paid rests pop a
+  // Yes/No confirm first so the player never loses Marks by accident.
+  private tryRest(cost: number) {
+    if (this.resting || this.innPrompt) return;
     if (!partyNeedsRest()) { sfx("cancel"); this.showToast("The party is already well rested."); return; }
+    if (cost <= 0) { this.doRest(0); return; }
+    if (getMarks() < cost) { sfx("error"); this.showToast(`Not enough Marks (the inn costs ${cost}).`); return; }
+    this.openInnPrompt(cost);
+  }
+
+  // a small Yes/No panel anchored to screen for the paid inn
+  private openInnPrompt(cost: number) {
+    sfx("confirm");
+    this.prompt.setVisible(false);
+    const g = this.add.graphics().setScrollFactor(0).setDepth(95);
+    ffWindow(g, 96, 78, W - 192, 56);
+    const t1 = this.add.text(W / 2, 92, `Rest the party for`, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.clothHi) }).setOrigin(0.5).setScrollFactor(0).setDepth(96);
+    const t2 = this.add.text(W / 2, 104, `${cost} Marks?`, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xfee761) }).setOrigin(0.5).setScrollFactor(0).setDepth(96);
+    const t3 = this.add.text(W / 2, 122, `Z: Yes    X: No`, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(PAL.steelHi) }).setOrigin(0.5).setScrollFactor(0).setDepth(96);
+    this.innPrompt = { cost, objs: [g, t1, t2, t3] };
+  }
+
+  private closeInnPrompt() {
+    if (!this.innPrompt) return;
+    this.innPrompt.objs.forEach((o) => o.destroy());
+    this.innPrompt = null;
+  }
+
+  private handleInnPrompt() {
+    if (!this.innPrompt) return;
+    if (Phaser.Input.Keyboard.JustDown(this.keyZ)) {
+      const cost = this.innPrompt.cost;
+      this.closeInnPrompt();
+      if (spendMarks(cost)) this.doRest(cost); else { sfx("error"); this.showToast("Not enough Marks."); }
+    } else if (Phaser.Input.Keyboard.JustDown(this.keyX)) {
+      sfx("cancel"); this.closeInnPrompt();
+    }
+  }
+
+  // the shared fade-to-black + full heal used by both the clinic and paid inns
+  private doRest(cost: number) {
     this.resting = true;
     this.prompt.setVisible(false);
     sfx("confirm");
@@ -555,7 +613,7 @@ export class OverworldScene extends Phaser.Scene {
       restParty();
       sfx("heal");
       this.cameras.main.fadeIn(550, 0, 0, 0);
-      this.showToast("The party rests... HP and MP fully restored!");
+      this.showToast(cost > 0 ? `Rested. HP/MP restored.  -${cost} Marks` : "The party rests... HP and MP fully restored!");
       this.time.delayedCall(650, () => { this.resting = false; });
     });
   }
@@ -571,8 +629,9 @@ export class OverworldScene extends Phaser.Scene {
 
   update(_: number, dt: number) {
     if (this.done) return;
-    // open the party / status menu (towns only)
-    if (!this.venue && Phaser.Input.Keyboard.JustDown(this.keyMenu)) { this.scene.launch("partymenu"); this.scene.pause(); return; }
+    if (this.resting || this.innPrompt) { this.handleInnPrompt(); return; } // mid-rest / inn confirm: suppress movement
+    // open the party / status menu — available everywhere (towns, interiors, the field)
+    if (Phaser.Input.Keyboard.JustDown(this.keyMenu)) { this.scene.launch("partymenu", { from: "overworld" }); this.scene.pause(); return; }
     const sp = 0.075 * dt;
     let dx = 0, dy = 0;
     if (this.cursors.left!.isDown) dx -= sp;
