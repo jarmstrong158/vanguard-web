@@ -24,6 +24,12 @@ const HOME_CHAT: DialogSeq = { id: "home_chat", context: "A Thornwall Home", lin
   { speaker: "Villager", text: "Folks say the south wall cracked again. Hope someone sees to it." },
 ]};
 
+// A townsperson points the player toward Farmer Bram's bounty work.
+const FARMER_HINT: DialogSeq = { id: "farmer_hint", context: "Town Gossip", lines: [
+  { speaker: "Villager", text: "Old Bram's pasture has been crawling with critters lately — rats, spiders, wolves off the moor." },
+  { speaker: "Villager", text: "He's paying good coin to anyone who'll thin them out. The pasture gate's up the north road, past the clinic." },
+]};
+
 // Interior rooms reachable through doors. The town map is unchanged; the venue just
 // swaps what the overworld renders. Shops open the ShopScene; houses play a line.
 const INTERIORS: Record<string, InteriorDef> = {
@@ -242,66 +248,71 @@ export class OverworldScene extends Phaser.Scene {
 
   // ---------------- maps ----------------
   private buildThornwall() {
-    this.worldW = 640; this.worldH = 460;
+    this.worldW = 640; this.worldH = 540;
     const g = this.add.graphics();
     g.fillStyle(0x3a5a3a, 1); g.fillRect(0, 0, this.worldW, this.worldH);
     g.fillStyle(0x2e4a2e, 1); for (let y = 0; y < this.worldH; y += 8) for (let x = (y % 16); x < this.worldW; x += 16) g.fillRect(x, y, 3, 2);
-    // crossroads of dirt path
-    g.fillStyle(0x6b5a3a, 1); g.fillRect(300, 40, 30, 384); g.fillRect(40, 250, this.worldW - 80, 28);
-    g.fillStyle(0x5a4a30, 1); for (let y = 48; y < 420; y += 12) g.fillRect(304, y, 22, 2);
-    // outer wall hint (top + sides)
-    g.fillStyle(0x4a4038, 1); g.fillRect(0, 24, this.worldW, 8);
-    // buildings
-    this.house(g, 150, 40, 0xc8b89a); // clinic (decorative)
-    g.fillStyle(0xd64b4b, 1); g.fillRect(168, 46, 2, 8); g.fillRect(165, 49, 8, 2);
-    this.add.text(170, 36, "CLINIC", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xfff0d0) }).setOrigin(0.5);
-    // enterable buildings — two shops + a home (walk into the door)
     const sign = (x: number, y: number, t: string, col: number) => this.add.text(x, y, t, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(col) }).setOrigin(0.5).setDepth(46);
-    this.building(g, 70, 120, "thornwall_item", 0x6a8a64, 0x3a6a4a);  sign(101, 94, "PROVISIONS", 0x7fe0a0);
-    this.building(g, 470, 110, "thornwall_equip", 0x8a8a96, 0x52505a); sign(501, 84, "ARMORY", 0xc0cbdc);
-    this.building(g, 96, 320, "thornwall_home", 0x8a7a5a, 0x6b3a2a);   sign(127, 294, "HOME", 0xe0c080);
-    this.house(g, 540, 300, 0x7a6a52); // decorative
-    // north back gate -> the farmer's pasture (starter grinding field)
-    g.fillStyle(0x3a2d20, 1); g.fillRect(98, 22, 32, 12);
-    g.fillStyle(0x2a1f18, 1); g.fillRect(105, 24, 18, 10);
-    sign(114, 14, "PASTURE", 0x9ad0a0);
-    this.doors.push({ x: 101, y: 33, w: 26, h: 12, interior: "field" });
+
+    // ---- Farmer Bram's pasture, NORTH of the village (visible through a rail fence) ----
+    g.fillStyle(0x2f4e2f, 1); g.fillRect(0, 0, this.worldW, 92);                 // greener pasture grass
+    const sheep = (sx: number) => { g.fillStyle(0xe8e4dc, 1); g.fillEllipse(sx, 52, 18, 11); g.fillStyle(0x3a3330, 1); g.fillEllipse(sx + 9, 52, 6, 6); g.fillRect(sx - 7, 58, 2, 4); g.fillRect(sx + 3, 58, 2, 4); };
+    sheep(150); sheep(430); sheep(540);
+    for (let x = 8; x < this.worldW; x += 26) { g.fillStyle(0x7a6446, 1); g.fillRect(x, 80, 4, 16); } // fence posts
+    g.fillStyle(0x6a5436, 1); g.fillRect(0, 88, 286, 5); g.fillRect(332, 88, this.worldW - 332, 5);     // rails (gap = gate)
+    this.solids.push({ x: -2, y: 86, w: 288, h: 10 }); this.solids.push({ x: 332, y: 86, w: this.worldW - 330, h: 10 });
+    g.fillStyle(0x3a2d20, 1); g.fillRect(290, 84, 44, 14);                       // gate frame
+    g.fillStyle(0x2a1f18, 1); g.fillRect(300, 86, 24, 12);                       // gateway
+    sign(312, 72, "FARMER'S PASTURE", 0x9ad0a0);
+    this.doors.push({ x: 298, y: 96, w: 28, h: 14, interior: "field" });
+
+    // central dirt road from the pasture gate down through town to the south gate
+    g.fillStyle(0x6b5a3a, 1); g.fillRect(300, 96, 30, 404);
+    g.fillStyle(0x5a4a30, 1); for (let y = 104; y < 496; y += 12) g.fillRect(304, y, 22, 2);
+    g.fillStyle(0x6b5a3a, 1); g.fillRect(40, 340, this.worldW - 80, 28);        // crossroad
+
+    // buildings
+    this.house(g, 150, 140, 0xc8b89a); // clinic (decorative)
+    g.fillStyle(0xd64b4b, 1); g.fillRect(168, 146, 2, 8); g.fillRect(165, 149, 8, 2);
+    this.add.text(170, 132, "CLINIC", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xfff0d0) }).setOrigin(0.5);
+    this.building(g, 70, 210, "thornwall_item", 0x6a8a64, 0x3a6a4a);  sign(101, 184, "PROVISIONS", 0x7fe0a0);
+    this.building(g, 470, 200, "thornwall_equip", 0x8a8a96, 0x52505a); sign(501, 174, "ARMORY", 0xc0cbdc);
+    this.building(g, 96, 410, "thornwall_home", 0x8a7a5a, 0x6b3a2a);   sign(127, 384, "HOME", 0xe0c080);
+    this.house(g, 540, 380, 0x7a6a52); // decorative
 
     // ---- SOUTH WALL with the gate + a frost-cracked breach to the east ----
-    g.fillStyle(0x5a5048, 1); g.fillRect(0, 420, this.worldW, 14);
-    g.fillStyle(0x6a6058, 1); g.fillRect(0, 420, this.worldW, 2);
-    // gate
-    g.fillStyle(0x4a3a2a, 1); g.fillRect(286, 418, 60, 18);
-    g.fillStyle(0x2a1f18, 1); g.fillRect(300, 420, 30, 16);
-    // breach (gap carved out of the wall + rubble) — shown until repaired
+    g.fillStyle(0x5a5048, 1); g.fillRect(0, 500, this.worldW, 14);
+    g.fillStyle(0x6a6058, 1); g.fillRect(0, 500, this.worldW, 2);
+    g.fillStyle(0x4a3a2a, 1); g.fillRect(286, 498, 60, 18);
+    g.fillStyle(0x2a1f18, 1); g.fillRect(300, 500, 30, 16);
     const bx = 470;
     this.breachDebris = this.add.graphics().setDepth(2);
-    this.breachDebris.fillStyle(0x3a5a3a, 1); this.breachDebris.fillRect(bx, 416, 48, 20);
-    this.breachDebris.fillStyle(0x6a6058, 1); this.breachDebris.fillRect(bx - 4, 430, 12, 5); this.breachDebris.fillRect(bx + 36, 432, 12, 4);
-    this.breachDebris.fillStyle(0x4a3a2a, 1); this.breachDebris.fillRect(bx + 16, 424, 6, 10);
-    // repaired patch (revealed once fixed)
+    this.breachDebris.fillStyle(0x3a5a3a, 1); this.breachDebris.fillRect(bx, 496, 48, 20);
+    this.breachDebris.fillStyle(0x6a6058, 1); this.breachDebris.fillRect(bx - 4, 510, 12, 5); this.breachDebris.fillRect(bx + 36, 512, 12, 4);
+    this.breachDebris.fillStyle(0x4a3a2a, 1); this.breachDebris.fillRect(bx + 16, 504, 6, 10);
     this.breachPatch = this.add.graphics().setDepth(3).setVisible(false);
-    this.breachPatch.fillStyle(0x5a5048, 1); this.breachPatch.fillRect(bx, 420, 48, 14);
-    this.breachPatch.fillStyle(0x6a6058, 1); this.breachPatch.fillRect(bx, 420, 48, 2);
+    this.breachPatch.fillStyle(0x5a5048, 1); this.breachPatch.fillRect(bx, 500, 48, 14);
+    this.breachPatch.fillStyle(0x6a6058, 1); this.breachPatch.fillRect(bx, 500, 48, 2);
 
     // townsfolk (character-sized)
-    this.npc(360, 180, "villager"); this.npc(120, 280, "villager2");
-    // (Kael at the gate is rendered by the b_kael story beat)
-    // secret chest behind the east house
-    this.chests = [{ x: 600, y: 170, id: "t1", equip: "travel_cloak" }];
-    // wolves that came through the breach (context comes from Toller)
-    this.nodes = [{ x: bx + 24, y: 410, enemies: ["thornwall_wolf", "thornwall_wolf"], id: "tb", intro: "Wolves slipped through the breach!" }];
+    this.npc(360, 270, "villager"); this.npc(120, 360, "villager2");
+    // (Kael at the south gate is rendered by the b_kael story beat)
+    this.chests = [{ x: 600, y: 250, id: "t1", equip: "travel_cloak" }];
+    this.nodes = [{ x: bx + 24, y: 490, enemies: ["thornwall_wolf", "thornwall_wolf"], id: "tb", intro: "Wolves slipped through the breach!" }];
     // people / quest spots you can talk to
     this.interactables = [
-      { x: 210, y: 230, sprite: "elder", label: "Toller", labelColor: 0xe0c080,
+      { x: 210, y: 310, sprite: "elder", label: "Toller", labelColor: 0xe0c080,
         quest: () => !flag("wall_quest"), active: () => true,
         seq: () => (flag("wall_fixed") ? Q_TOLLER_THANKS : Q_TOLLER) },
-      { x: bx + 24, y: 414, label: "Breach", labelColor: 0xe07a5a,
+      { x: bx + 24, y: 494, label: "Breach", labelColor: 0xe07a5a,
         quest: () => flag("enc_thornwall_tb") && !flag("wall_fixed"),
         active: () => flag("enc_thornwall_tb") && !flag("wall_fixed"),
         seq: () => Q_WALL_REPAIR },
+      // a townsperson who points you to the farmer's work (the pasture bounty)
+      { x: 420, y: 300, sprite: "villager", label: "Townsfolk", labelColor: 0xc8d0a0,
+        quest: () => true, active: () => true, seq: () => FARMER_HINT },
     ];
-    this.px = 316; this.py = 110; this.needsTalk = true;
+    this.px = 300; this.py = 200; this.needsTalk = true;
   }
 
   private buildMarsh() {
@@ -539,7 +550,7 @@ export class OverworldScene extends Phaser.Scene {
     for (const d of this.doors) {
       if (this.pointIn(d)) {
         this.done = true;
-        if (d.interior === "__town") { setVenue(null); setOwResume({ map: "thornwall", x: 112, y: 56 }); } // field gate -> Thornwall back gate
+        if (d.interior === "__town") { setVenue(null); setOwResume({ map: "thornwall", x: 312, y: 118 }); } // field gate -> just below the pasture gate
         else { setOwResume({ map: this.map, x: d.x + d.w / 2, y: d.y + 22 }); setVenue(d.interior); } // building/field entrance
         this.scene.restart(this.step);
         return;
@@ -668,7 +679,9 @@ export class OverworldScene extends Phaser.Scene {
   private fireBeat(beat: WorldBeat) {
     this.done = true;
     if (beat.kind === "dialogue") {
-      this.scene.launch("dialogue", { overlay: true, seq: beat.seq, doneFlag: beat.id });
+      // cinematic beats play over a scenic backdrop; talk beats dim the world in place
+      const bg = beat.bg ?? (this.map === "marsh" ? "marsh" : this.map === "hollows" || this.map === "emberreach" ? "hollows" : "dawn");
+      this.scene.launch("dialogue", { overlay: true, seq: beat.seq, doneFlag: beat.id, cinematic: beat.cinematic, bg });
       this.scene.pause();
     } else if (beat.battle) {
       setOwResume({ map: this.map, x: this.px, y: this.py });

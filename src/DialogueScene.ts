@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { activeParty, awardXp, getStory, giveEquip, joinMember, saveStory, setFlag, startStep, type DialogSeq, type Line, type StoryStep } from "./story";
 
-type OverlayData = { overlay: true; seq: DialogSeq; bg?: string; doneFlag?: string };
+type OverlayData = { overlay: true; seq: DialogSeq; bg?: string; doneFlag?: string; cinematic?: boolean };
 
 const W = 384;
 const H = 216;
@@ -27,14 +27,15 @@ export class DialogueScene extends Phaser.Scene {
   private autoElapsed = 0;
 
   private overlay = false;
+  private cinematic = false;
   private doneFlag?: string;
 
   constructor() { super("dialogue"); }
 
   init(data: StoryStep | OverlayData) {
     this.idx = 0;
-    if ("overlay" in data) { this.overlay = true; this.doneFlag = data.doneFlag; this.step = { kind: "dialogue", seq: data.seq, bg: data.bg ?? "town" }; }
-    else { this.overlay = false; this.doneFlag = undefined; this.step = data; }
+    if ("overlay" in data) { this.overlay = true; this.cinematic = !!data.cinematic; this.doneFlag = data.doneFlag; this.step = { kind: "dialogue", seq: data.seq, bg: data.bg ?? "town" }; }
+    else { this.overlay = false; this.cinematic = false; this.doneFlag = undefined; this.step = data; }
   }
 
   create() {
@@ -44,8 +45,8 @@ export class DialogueScene extends Phaser.Scene {
       // render ABOVE this scene by default, hiding the overlay box behind it. Force
       // this scene to the top of the render order so the dialogue is actually visible.
       this.scene.bringToTop();
-      // play over the paused overworld: just dim it, keep it visible behind
-      const dim = this.add.graphics(); dim.fillStyle(0x05060c, 0.6); dim.fillRect(0, 0, W, H);
+      if (this.cinematic) this.drawBg();  // cutscene: paint a scenic backdrop over the world
+      else { const dim = this.add.graphics(); dim.fillStyle(0x05060c, 0.6); dim.fillRect(0, 0, W, H); } // talking in place: dim
     } else {
       this.drawBg();
     }

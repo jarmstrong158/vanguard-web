@@ -524,6 +524,7 @@ export interface WorldBeat {
   when: () => boolean;   // preconditions (flags)
   kind: "dialogue" | "battle";
   seq?: DialogSeq;
+  bg?: string;           // backdrop for cinematic beats (dawn/clinic/marsh/hollows)
   battle?: { party: string[]; enemies: string[]; intro: string; escape?: boolean };
   objective?: string;    // banner hint while this is the next pending beat
 }
@@ -531,9 +532,9 @@ export interface WorldBeat {
 export const WORLD_BEATS: WorldBeat[] = [
   // --- THORNWALL: the morning, the attack, Maren's awakening ---
   { id: "b_open", loc: "thornwall", cinematic: true, when: () => true, kind: "dialogue", seq: INTRO_OPENING, objective: "Find Kael at the south gate" },
-  { id: "b_kael", loc: "thornwall", talk: { x: 316, y: 414, sprite: "kael", label: "Kael", color: 0xd9b25e }, when: () => flag("b_open"), kind: "dialogue", seq: INTRO_ATTACK, objective: "Find Kael at the south gate" },
-  { id: "b_gate", loc: "thornwall", at: { x: 316, y: 405, r: 64 }, when: () => flag("b_kael"), kind: "battle", battle: { party: ["maren", "kael"], enemies: ["ashguard_scout", "ashguard_scout"], intro: "Ashguard scouts breach the gate!", escape: false }, objective: "Defend the south gate!" },
-  { id: "b_clinic", loc: "thornwall", cinematic: true, when: () => flag("b_gate"), kind: "dialogue", seq: INTRO_CLINIC },
+  { id: "b_kael", loc: "thornwall", talk: { x: 300, y: 490, sprite: "kael", label: "Kael", color: 0xd9b25e }, when: () => flag("b_open"), kind: "dialogue", seq: INTRO_ATTACK, objective: "Find Kael at the south gate" },
+  { id: "b_gate", loc: "thornwall", at: { x: 300, y: 482, r: 70 }, when: () => flag("b_kael"), kind: "battle", battle: { party: ["maren", "kael"], enemies: ["ashguard_scout", "ashguard_scout"], intro: "Ashguard scouts breach the gate!", escape: false }, objective: "Defend the south gate!" },
+  { id: "b_clinic", loc: "thornwall", cinematic: true, when: () => flag("b_gate"), kind: "dialogue", seq: INTRO_CLINIC, bg: "clinic" },
   { id: "b_farewell", loc: "thornwall", cinematic: true, when: () => flag("b_clinic"), kind: "dialogue", seq: GATE_FAREWELL, objective: "Leave through the south gate" },
   // --- THE MARSH ---
   { id: "b_marsh_in", loc: "marsh", cinematic: true, when: () => true, kind: "dialogue", seq: MARSH_ENTRY, objective: "Cross the marsh" },
@@ -563,7 +564,7 @@ export const WORLD_BEATS: WorldBeat[] = [
 
 export const WORLD_GATES: Partial<Record<MapId, Gate[]>> = {
   thornwall: [
-    { x: 300, y: 418, w: 36, h: 20, to: "marsh", toX: 192, toY: 56, label: "SOUTH GATE", locked: () => !flag("b_farewell") },
+    { x: 296, y: 500, w: 40, h: 18, to: "marsh", toX: 192, toY: 56, label: "SOUTH GATE", locked: () => !flag("b_farewell") },
   ],
   marsh: [
     { x: 174, y: 24, w: 28, h: 16, to: "thornwall", toX: 316, toY: 122, label: "↑ THORNWALL" },
