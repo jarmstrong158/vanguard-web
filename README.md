@@ -1,5 +1,7 @@
 # Vanguard (web)
 
+![Vanguard title screen](docs/title.png)
+
 A GBA/SNES-era turn-based JRPG built in **TypeScript + Phaser 3 + Vite**, with hand-baked
 pixel-art sprites and a sim-tuned combat engine. A web port of the Godot "Vanguard" project.
 
