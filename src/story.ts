@@ -566,9 +566,9 @@ export const WORLD_BEATS: WorldBeat[] = [
   { id: "b_marsh_in", loc: "marsh", cinematic: true, when: () => true, kind: "dialogue", seq: MARSH_ENTRY, objective: "Cross the marsh" },
   { id: "b_marsh_fight", loc: "marsh", at: { x: 192, y: 250, r: 48 }, when: () => flag("b_marsh_in"), kind: "battle", battle: { party: ["maren", "kael", "lida"], enemies: ["marsh_slime", "thornwall_wolf", "marsh_slime"], intro: "Marsh creatures lunge from the fog!", escape: true }, objective: "Cross the marsh to the waystation" },
   // --- WAYSTATION ---
-  { id: "b_fennick", loc: "waystation", talk: { x: 300, y: 150, sprite: "elder", label: "Fennick", color: 0x9ab0e0 }, when: () => true, kind: "dialogue", seq: FENNICK, objective: "Speak with Fennick the scholar" },
+  { id: "b_fennick", loc: "waystation", talk: { x: 270, y: 256, sprite: "elder", label: "Fennick", color: 0x9ab0e0 }, when: () => true, kind: "dialogue", seq: FENNICK, objective: "Speak with Fennick the scholar" },
   // --- REDHOLLOW (Emberreach) ---
-  { id: "b_senna", loc: "emberreach", talk: { x: 316, y: 150, sprite: "senna", label: "?", color: 0xf77622 }, when: () => true, kind: "dialogue", seq: SENNA_JOINS, objective: "Find the resistance in Redhollow" },
+  { id: "b_senna", loc: "emberreach", talk: { x: 300, y: 210, sprite: "senna", label: "?", color: 0xf77622 }, when: () => true, kind: "dialogue", seq: SENNA_JOINS, objective: "Find the resistance in Redhollow" },
   { id: "b_rhogar_meet", loc: "emberreach", cinematic: true, when: () => flag("b_senna"), kind: "dialogue", seq: RHOGAR_ENCOUNTER },
   { id: "b_rhogar", loc: "emberreach", cinematic: true, when: () => flag("b_rhogar_meet"), kind: "battle", battle: { party: ["maren", "kael", "lida", "senna"], enemies: ["captain_rhogar"], intro: "Captain Rhogar blocks the road!", escape: false }, objective: "Drive Captain Rhogar from Redhollow" },
   { id: "b_rhogar_done", loc: "emberreach", cinematic: true, when: () => flag("b_rhogar"), kind: "dialogue", seq: RHOGAR_DEFEATED, objective: "Redhollow breathes — press on to the Hollows" },
@@ -594,22 +594,22 @@ export const WORLD_GATES: Partial<Record<MapId, Gate[]>> = {
   ],
   marsh: [
     { x: 174, y: 24, w: 28, h: 16, to: "thornwall", toX: 316, toY: 122, label: "↑ THORNWALL" },
-    { x: 160, y: 442, w: 64, h: 16, to: "waystation", toX: 70, toY: 150, label: "WAYSTATION ↓" },
+    { x: 160, y: 442, w: 64, h: 16, to: "waystation", toX: 44, toY: 200, label: "WAYSTATION ↓" },
   ],
   waystation: [
-    { x: 6, y: 128, w: 16, h: 56, to: "marsh", toX: 192, toY: 430, label: "← MARSH" },
-    { x: 362, y: 128, w: 16, h: 56, to: "emberreach", toX: 60, toY: 156, label: "REDHOLLOW →", locked: () => !flag("b_fennick") },
+    { x: 8, y: 184, w: 18, h: 50, to: "marsh", toX: 192, toY: 430, label: "← MARSH" },
+    { x: 514, y: 184, w: 18, h: 50, to: "emberreach", toX: 64, toY: 300, label: "REDHOLLOW →", locked: () => !flag("b_fennick") },
   ],
   emberreach: [
-    { x: 6, y: 138, w: 16, h: 56, to: "waystation", toX: 300, toY: 150, label: "← WAYSTATION" },
-    { x: 362, y: 92, w: 16, h: 56, to: "hollows", toX: 252, toY: 48, label: "THE HOLLOWS →", locked: () => !flag("b_rhogar_done") },
+    { x: 8, y: 276, w: 18, h: 52, to: "waystation", toX: 496, toY: 200, label: "← WAYSTATION" },
+    { x: 538, y: 150, w: 18, h: 52, to: "hollows", toX: 252, toY: 48, label: "THE HOLLOWS →", locked: () => !flag("b_rhogar_done") },
   ],
   hollows: [
-    { x: 238, y: 24, w: 28, h: 16, to: "emberreach", toX: 316, toY: 150, label: "↑ REDHOLLOW" },
-    { x: 110, y: 472, w: 50, h: 18, to: "stonemantle", toX: 50, toY: 150, label: "STONEMANTLE ↓", locked: () => !flag("b_stalker_done") },
+    { x: 238, y: 24, w: 28, h: 16, to: "emberreach", toX: 500, toY: 176, label: "↑ REDHOLLOW" },
+    { x: 110, y: 472, w: 50, h: 18, to: "stonemantle", toX: 60, toY: 176, label: "STONEMANTLE ↓", locked: () => !flag("b_stalker_done") },
   ],
   stonemantle: [
-    { x: 6, y: 128, w: 16, h: 56, to: "hollows", toX: 134, toY: 460, label: "← THE HOLLOWS" },
+    { x: 8, y: 150, w: 18, h: 52, to: "hollows", toX: 134, toY: 460, label: "← THE HOLLOWS" },
   ],
 };
 

@@ -16,7 +16,7 @@ interface Interactable { x: number; y: number; sprite?: string; label?: string; 
 // a building doorway: walk onto it to enter the named interior
 interface Door { x: number; y: number; w: number; h: number; interior: string; }
 type ShopKind = "item" | "equip";
-interface InteriorDef { name: string; sign: number; vendor?: string; vendorName?: string; shop?: ShopKind; line?: DialogSeq; clinic?: boolean; }
+interface InteriorDef { name: string; sign: number; vendor?: string; vendorName?: string; shop?: ShopKind; line?: DialogSeq; clinic?: boolean; inn?: boolean; restCost?: number; }
 
 // Flavor chatter for a plain house.
 const HOME_CHAT: DialogSeq = { id: "home_chat", context: "A Thornwall Home", lines: [
@@ -43,6 +43,17 @@ const INTERIORS: Record<string, InteriorDef> = {
   thornwall_equip:  { name: "ARMORY",     sign: 0xc0cbdc, vendor: "villager",  vendorName: "Garrin",   shop: "equip" },
   thornwall_home:   { name: "HOME",       sign: 0xe0c080, vendor: "elder",     vendorName: "Resident", line: HOME_CHAT },
   thornwall_clinic: { name: "CLINIC",     sign: 0xff8a8a, vendor: "villager2", vendorName: "Renna",    line: CLINIC_CHAT, clinic: true },
+  // Waystation — a traveler's rest stop
+  waystation_inn:   { name: "WAYFARER'S REST", sign: 0xffd98a, vendor: "villager", vendorName: "Hobb",  inn: true, restCost: 15 },
+  waystation_item:  { name: "SUPPLIES",   sign: 0x7fe0a0, vendor: "villager2", vendorName: "Petra",    shop: "item" },
+  // Redhollow — occupied, but commerce limps on
+  emberreach_inn:   { name: "ASH & EMBER INN", sign: 0xffd98a, vendor: "villager2", vendorName: "Calla", inn: true, restCost: 25 },
+  emberreach_item:  { name: "BLACK MARKET", sign: 0x7fe0a0, vendor: "villager", vendorName: "Smuggler", shop: "item" },
+  emberreach_equip: { name: "SCAVENGED ARMS", sign: 0xc0cbdc, vendor: "villager", vendorName: "Dorn",  shop: "equip" },
+  // Ironhold — a guild meritocracy city
+  stonemantle_inn:  { name: "GUILD LODGE", sign: 0xffd98a, vendor: "villager2", vendorName: "Steward", inn: true, restCost: 40 },
+  stonemantle_item: { name: "GUILD STORES", sign: 0x7fe0a0, vendor: "villager2", vendorName: "Quartermaster", shop: "item" },
+  stonemantle_equip:{ name: "FORGE HALL",  sign: 0xc0cbdc, vendor: "villager", vendorName: "Smith",    shop: "equip" },
 };
 
 export class OverworldScene extends Phaser.Scene {
@@ -285,6 +296,30 @@ export class OverworldScene extends Phaser.Scene {
         { x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null },
         { x: 56, y: 132, label: "REST", labelColor: 0x7fe0a0, prompt: "rest", active: () => true, seq: () => null, action: () => this.restAtClinic() },
       ];
+    } else if (def?.inn) {
+      // inn: warm wood floor, a row of beds, an innkeeper at the counter. Rest costs Marks.
+      const cost = def.restCost ?? 20;
+      g.fillStyle(0x4a3528, 1); g.fillRect(14, 40, W - 28, H - 40);
+      g.fillStyle(0x573f2e, 1); for (let yy = 50; yy < H; yy += 16) g.fillRect(14, yy, W - 28, 2);
+      g.fillStyle(0xf0b53c, 0.10); g.fillCircle(W / 2, 30, 50); // hearth glow
+      const bed = (cx: number, cy: number) => {
+        g.fillStyle(0x6a4a30, 1); g.fillRect(cx - 22, cy, 44, 18);            // frame
+        g.fillStyle(0xe6dcc6, 1); g.fillRect(cx - 20, cy + 2, 40, 12);        // mattress
+        g.fillStyle(0xc0a070, 1); g.fillRect(cx - 18, cy + 3, 11, 8);         // pillow
+        g.fillStyle(0x9a6a4a, 1); g.fillRect(cx - 6, cy + 8, 26, 2);          // quilt fold
+        this.solids.push({ x: cx - 22, y: cy, w: 44, h: 18 });
+      };
+      bed(58, 120); bed(58, 158); bed(W - 58, 120); bed(W - 58, 158);
+      // innkeeper's counter
+      g.fillStyle(0x3a2a1e, 1); g.fillRect(W / 2 - 30, 70, 60, 12); g.fillStyle(0x6a4a30, 1); g.fillRect(W / 2 - 30, 68, 60, 4);
+      this.solids.push({ x: W / 2 - 30, y: 70, w: 60, h: 12 });
+      this.npc(W / 2, 66, def.vendor ?? "villager2");
+      this.add.text(W / 2, 30, def.vendorName ?? "Innkeeper", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(def.sign) }).setOrigin(0.5).setDepth(56);
+      this.add.text(58, 106, `${cost} Marks`, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(56);
+      this.interactables = [
+        { x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, prompt: `rest ${cost}M`, active: () => true, seq: () => null, action: () => this.tryRest(cost) },
+        { x: 58, y: 132, label: "REST", labelColor: 0xffd98a, prompt: `rest ${cost}M`, active: () => true, seq: () => null, action: () => this.tryRest(cost) },
+      ];
     } else if (def?.line) {
       this.npc(W / 2, 78, def.vendor ?? "elder");
       this.interactables = [{ x: W / 2, y: 88, label: def.vendorName, labelColor: def.sign, active: () => true, seq: () => def.line ?? null }];
@@ -412,57 +447,96 @@ export class OverworldScene extends Phaser.Scene {
     this.px = 252; this.py = 40; this.needsTalk = false;
   }
 
+  // WAYSTATION — a fortified rest stop on the south road through the wilds.
   private buildWaystation() {
+    this.worldW = 540; this.worldH = 360;
     const g = this.add.graphics();
-    g.fillStyle(0x4a4232, 1); g.fillRect(0, 0, W, H);
-    g.fillStyle(0x3e3729, 1); for (let y = 24; y < H; y += 8) for (let x = (y % 16); x < W; x += 16) g.fillRect(x, y, 3, 2);
-    g.fillStyle(0x3a2d26, 1); g.fillRect(60, 60, 90, 50);
-    g.fillStyle(0x8a7252, 1); g.fillRect(60, 60, 90, 44);
-    g.fillStyle(0x5a3a2a, 1); g.fillTriangle(54, 60, 105, 36, 156, 60);
-    g.fillStyle(0x2a1f18, 1); g.fillRect(95, 86, 18, 24);
-    g.fillStyle(0xffd98a, 0.7); g.fillRect(72, 70, 10, 10); g.fillRect(128, 70, 10, 10);
-    this.add.text(105, 30, "WAYSTATION", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xfff0d0) }).setOrigin(0.5);
-    g.fillStyle(0xffcf6a, 1); g.fillCircle(300, 70, 4);
-    // a traveler's inn — rest the party for Marks
-    this.add.text(150, 132, "INN", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(55);
-    this.interactables = [this.innInteractable(150, 158, 15)];
-    // (Fennick is rendered by the b_fennick story beat)
-    this.px = 70; this.py = 150;
+    const sign = (x: number, y: number, t: string, col: number) => this.add.text(x, y, t, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(col) }).setOrigin(0.5).setDepth(46);
+    // packed-earth ground
+    g.fillStyle(0x4a4232, 1); g.fillRect(0, 0, this.worldW, this.worldH);
+    g.fillStyle(0x3e3729, 1); for (let y = 0; y < this.worldH; y += 8) for (let x = (y % 16); x < this.worldW; x += 16) g.fillRect(x, y, 3, 2);
+    // grassy verge + treeline along the top, hinting at the road's wild surroundings
+    g.fillStyle(0x2f4a2f, 1); g.fillRect(0, 0, this.worldW, 44);
+    for (let i = 0; i < 9; i++) { const tx = 30 + i * 62; g.fillStyle(0x1f3320, 1); g.fillTriangle(tx - 14, 44, tx, 8, tx + 14, 44); }
+    // log palisade just below the treeline (decorative, with a solid strip — gate gaps at the edges)
+    g.fillStyle(0x5a4632, 1); g.fillRect(40, 44, this.worldW - 80, 7);
+    this.solids.push({ x: 40, y: 44, w: this.worldW - 80, h: 9 });
+    // main east–west road with a vertical spur to the well
+    g.fillStyle(0x6b5a3a, 1); g.fillRect(0, 182, this.worldW, 40);
+    g.fillStyle(0x5a4a30, 1); for (let x = 8; x < this.worldW; x += 14) g.fillRect(x, 200, 8, 2);
+    g.fillStyle(0x6b5a3a, 1); g.fillRect(258, 222, 24, 70);
+    // a stone well (solid)
+    g.fillStyle(0x3a3640, 1); g.fillCircle(270, 300, 17); g.fillStyle(0x6a6470, 1); g.fillCircle(270, 300, 14); g.fillStyle(0x10141c, 1); g.fillCircle(270, 300, 9);
+    g.fillStyle(0x4a3a2c, 1); g.fillRect(266, 282, 8, 18); // well post
+    this.solids.push({ x: 252, y: 290, w: 36, h: 22 });
+    // a campfire ring for travelers
+    g.fillStyle(0x2a2018, 1); g.fillCircle(110, 300, 12); g.fillStyle(0xffcf6a, 0.8); g.fillCircle(110, 300, 5); g.fillStyle(0xff7a3a, 0.7); g.fillCircle(110, 300, 3);
+    // enterable buildings
+    this.building(g, 100, 92, "waystation_inn", 0x9a8460, 0x7a4a2a);  sign(131, 68, "WAYFARER'S REST", 0xffd98a);
+    this.building(g, 360, 92, "waystation_item", 0x6a8a64, 0x3a6a4a); sign(391, 68, "SUPPLIES", 0x7fe0a0);
+    sign(270, 18, "WAYSTATION", 0xfff0d0);
+    // (Fennick is rendered by the b_fennick beat at 270,256)
+    this.px = 60; this.py = 200; this.needsTalk = false;
   }
 
+  // REDHOLLOW — a fire-region town under Valcrest occupation. Scorched, watched, defiant.
   private buildEmberreach() {
+    this.worldW = 560; this.worldH = 360;
     const g = this.add.graphics();
-    g.fillStyle(0x3a2a30, 1); g.fillRect(0, 0, W, H);
-    g.fillStyle(0x332530, 1); for (let y = 24; y < H; y += 8) for (let x = (y % 16); x < W; x += 16) g.fillRect(x, y, 3, 2);
-    g.fillStyle(0x1f1622, 1); g.fillTriangle(40, 70, 120, 16, 200, 70);
-    g.fillStyle(0xe04a2a, 0.8); g.fillTriangle(104, 40, 120, 16, 136, 40);
-    g.fillStyle(0x4a3a3a, 1); g.fillRect(0, 70, W, H - 70);
-    const bldg = (x: number, y: number, w: number, h: number, col: number) => { g.fillStyle(0x241a1a, 1); g.fillRect(x, y + h - 4, w, 4); g.fillStyle(col, 1); g.fillRect(x, y, w, h); g.fillStyle(0x1a1014, 1); g.fillRect(x + w / 2 - 5, y + h - 16, 10, 16); };
-    bldg(20, 90, 56, 40, 0x5a4040); bldg(300, 96, 64, 44, 0x4a3636);
-    g.fillStyle(0xc0392b, 1); g.fillRect(96, 92, 14, 10); g.fillRect(250, 100, 14, 9);
-    this.add.text(105, 32, "REDHOLLOW — OCCUPIED", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xe0a0a0) }).setOrigin(0.5).setDepth(60);
-    // a back-alley innkeeper still takes coin under the occupation
-    this.add.text(190, 124, "INN", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(55);
-    this.interactables = [this.innInteractable(190, 150, 25)];
-    // (Senna is rendered by the b_senna story beat)
-    this.px = 60; this.py = 156;
+    const sign = (x: number, y: number, t: string, col: number) => this.add.text(x, y, t, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(col) }).setOrigin(0.5).setDepth(46);
+    // ashen ground
+    g.fillStyle(0x3a2a30, 1); g.fillRect(0, 0, this.worldW, this.worldH);
+    g.fillStyle(0x332530, 1); for (let y = 0; y < this.worldH; y += 8) for (let x = (y % 16); x < this.worldW; x += 16) g.fillRect(x, y, 3, 2);
+    // ember mountain on the skyline with a lava seam
+    g.fillStyle(0x1f1622, 1); g.fillTriangle(60, 64, 180, 0, 300, 64); g.fillTriangle(300, 64, 410, 6, 520, 64);
+    g.fillStyle(0xe04a2a, 0.85); g.fillTriangle(168, 36, 180, 0, 192, 36);
+    g.fillStyle(0xff7a3a, 0.5); g.fillCircle(180, 10, 6);
+    // soot-stained plaza
+    g.fillStyle(0x453640, 1); g.fillRect(0, 64, this.worldW, this.worldH - 64);
+    // cracked stone road (decorative)
+    g.fillStyle(0x564652, 1); g.fillRect(0, 230, this.worldW, 34); g.fillRect(280, 120, 26, 144);
+    g.fillStyle(0x3e3038, 1); for (let x = 8; x < this.worldW; x += 16) g.fillRect(x, 246, 8, 2);
+    // Valcrest occupation banners (red with black sigil) on poles
+    const banner = (x: number) => { g.fillStyle(0x2a2024, 1); g.fillRect(x, 70, 3, 60); g.fillStyle(0xc0392b, 1); g.fillRect(x - 7, 74, 17, 22); g.fillStyle(0x1a1014, 1); g.fillRect(x - 1, 80, 5, 10); };
+    banner(70); banner(250); banner(470);
+    // a few rubble piles (solid) — a town half-knocked-down
+    const rubble = (x: number, y: number) => { g.fillStyle(0x2e2630, 1); g.fillEllipse(x, y, 30, 14); g.fillStyle(0x3a3340, 1); g.fillRect(x - 8, y - 8, 8, 8); g.fillRect(x + 2, y - 5, 6, 6); this.solids.push({ x: x - 15, y: y - 8, w: 30, h: 16 }); };
+    rubble(150, 300); rubble(400, 150);
+    // enterable buildings (scorched walls, dark roofs)
+    this.building(g, 88, 92, "emberreach_inn", 0x6a5258, 0x3a2628);  sign(119, 68, "ASH & EMBER INN", 0xffd98a);
+    this.building(g, 300, 92, "emberreach_item", 0x5a4a52, 0x2e2230); sign(331, 68, "BLACK MARKET", 0x7fe0a0);
+    this.building(g, 444, 250, "emberreach_equip", 0x60504a, 0x2e2422); sign(475, 226, "SCAVENGED ARMS", 0xc0cbdc);
+    sign(280, 18, "REDHOLLOW — OCCUPIED", 0xe0a0a0);
+    // (Senna at 300,210 and the Rhogar beats are rendered by the story beats)
+    this.px = 64; this.py = 300; this.needsTalk = false;
   }
 
+  // IRONHOLD — a guild-meritocracy city of the earth region, built around its fighting pit.
   private buildStonemantle() {
+    this.worldW = 560; this.worldH = 360;
     const g = this.add.graphics();
-    g.fillStyle(0x3a3640, 1); g.fillRect(0, 0, W, H);
-    g.fillStyle(0x322e3a, 1); for (let y = 24; y < H; y += 10) g.fillRect(0, y, W, 1);
-    g.fillStyle(0xc0d0e0, 1); for (let i = 0; i < 18; i++) { const x = (i * 53) % W; const y = 36 + (i * 67) % 150; g.fillRect(x, y, 1, 5); }
-    const plat = (x: number, y: number, w: number) => { g.fillStyle(0x52505a, 1); g.fillRect(x, y, w, 6); g.fillStyle(0x6a6874, 1); g.fillRect(x, y, w, 1); };
-    plat(20, 70, 90); plat(250, 84, 110); plat(120, 130, 120);
-    this.add.text(105, 30, "IRONHOLD", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xc8d0e0) }).setOrigin(0.5).setDepth(60);
-    const pit = this.add.graphics(); pit.fillStyle(0x241f1a, 1); pit.fillEllipse(300, 156, 54, 22); pit.fillStyle(0x3a3026, 1); pit.fillEllipse(300, 154, 46, 16);
-    this.add.image(300, 152, SPRITE_KEY.yara).setOrigin(0.5, 1).setDepth(40);
-    this.add.text(300, 120, "FIGHTING PIT", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xe0b070) }).setOrigin(0.5).setDepth(55);
-    // a guild lodging house — the priciest rest, befitting the city
-    this.add.text(120, 168, "LODGE", { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(0xffd98a) }).setOrigin(0.5).setDepth(55);
-    this.interactables = [this.innInteractable(120, 190, 40)];
-    this.px = 50; this.py = 150; // (the b_yara beat triggers at the pit)
+    const sign = (x: number, y: number, t: string, col: number) => this.add.text(x, y, t, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(col) }).setOrigin(0.5).setDepth(46);
+    // dressed-stone ground with crystal flecks
+    g.fillStyle(0x3a3640, 1); g.fillRect(0, 0, this.worldW, this.worldH);
+    g.fillStyle(0x322e3a, 1); for (let y = 0; y < this.worldH; y += 10) g.fillRect(0, y, this.worldW, 1);
+    g.fillStyle(0xc0d0e0, 1); for (let i = 0; i < 40; i++) { const x = (i * 53) % this.worldW; const y = (i * 67) % this.worldH; g.fillRect(x, y, 1, 5); }
+    // raised stone terraces (decorative)
+    const plat = (x: number, y: number, w: number) => { g.fillStyle(0x4a4852, 1); g.fillRect(x, y, w, 8); g.fillStyle(0x6a6874, 1); g.fillRect(x, y, w, 2); };
+    plat(20, 60, 120); plat(360, 60, 150); plat(40, 320, 180); plat(360, 320, 160);
+    // banners of the guilds (slate + bronze)
+    const banner = (x: number, col: number) => { g.fillStyle(0x2a2832, 1); g.fillRect(x, 70, 3, 54); g.fillStyle(col, 1); g.fillRect(x - 7, 74, 17, 20); };
+    banner(80, 0xb0863a); banner(470, 0x5a7a9a);
+    // the fighting pit (the b_yara beat triggers within ~46px of 300,160)
+    g.fillStyle(0x241f1a, 1); g.fillEllipse(300, 168, 88, 36); g.fillStyle(0x3a3026, 1); g.fillEllipse(300, 166, 76, 28);
+    g.fillStyle(0x52483a, 1); for (let a = 0; a < 12; a++) { const ang = (a / 12) * Math.PI * 2; g.fillRect(300 + Math.cos(ang) * 46 - 2, 166 + Math.sin(ang) * 20 - 2, 4, 4); } // pit-edge stones
+    this.add.image(300, 162, SPRITE_KEY.yara).setOrigin(0.5, 1).setDepth(40);
+    sign(300, 128, "FIGHTING PIT", 0xe0b070);
+    // enterable buildings
+    this.building(g, 70, 92, "stonemantle_inn", 0x7a7884, 0x4a4852);   sign(101, 68, "GUILD LODGE", 0xffd98a);
+    this.building(g, 430, 92, "stonemantle_item", 0x6a8a64, 0x3a6a4a);  sign(461, 68, "GUILD STORES", 0x7fe0a0);
+    this.building(g, 430, 250, "stonemantle_equip", 0x8a8a96, 0x52505a); sign(461, 226, "FORGE HALL", 0xc0cbdc);
+    sign(280, 18, "IRONHOLD", 0xc8d0e0);
+    this.px = 60; this.py = 176; // (b_ironhold arrival cinematic fires on entry)
   }
 
   // The farmer's pasture: a scrolling grind field reached from Thornwall's back gate.
@@ -555,14 +629,8 @@ export class OverworldScene extends Phaser.Scene {
     this.tweens.add({ targets: this.toast, alpha: 0, delay: 1600, duration: 500 });
   }
 
-  // Sleep at a clinic cot: a short fade-to-black, then the whole party wakes fully restored.
-  // Free rest at Maren's mother's clinic.
+  // Free rest at Maren's mother's clinic cot — a short fade-to-black, then full HP/MP.
   private restAtClinic() { this.tryRest(0); }
-
-  // An innkeeper NPC that rests the party for Marks (used by towns beyond Thornwall).
-  private innInteractable(x: number, y: number, cost: number, sprite = "villager2"): Interactable {
-    return { x, y, sprite, label: "Innkeeper", labelColor: 0xffd98a, prompt: `rest ${cost}M`, active: () => true, seq: () => null, action: () => this.tryRest(cost) };
-  }
 
   // Paid inn rest in other towns. Free rests heal immediately; paid rests pop a
   // Yes/No confirm first so the player never loses Marks by accident.
