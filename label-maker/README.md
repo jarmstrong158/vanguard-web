@@ -8,7 +8,33 @@ to fit), the **BIN** you type in, and a scannable **Code 39 barcode** of the SKU
 - **8 labels per 8.5×11 sheet** (2 columns × 4 rows).
 - Descriptions come from the master barcoding reference (~2,100 SKUs), so you
   never retype them.
+- **Stays current automatically** — every run it finds your newest local master
+  barcoding file and refreshes the SKU drop-down + descriptions (see below).
 - No barcode font to install — real Code 39 barcodes are drawn by `reportlab`.
+
+## Keeping the SKU list up to date (automatic)
+
+When new codes are added to the master barcoding workbook (the file that gets
+emailed around and saved on each PC), you don't have to rebuild or resend
+anything. Each time `make_labels.py` runs it:
+
+1. **Finds the newest master** on the computer — it looks for an `.xlsx` whose
+   name contains "barcod" (and otherwise looks like the master) in the script
+   folder, Downloads, Desktop, Documents, and OneDrive, and picks the most
+   recently modified one. The location is remembered in `master_location.txt`.
+2. **Refreshes the drop-down + descriptions** inside `Barcoding_Label_Maker.xlsx`
+   from that master, reporting what changed (e.g. `+3 new, -1 removed`). Your
+   picked SKUs, bins, and formatting are left untouched.
+3. **Prints from live master data**, so even a brand-new code shows the right
+   description.
+
+Notes:
+- Just save the latest master anywhere normal (e.g. Downloads) and run as usual.
+- If the workbook is **open in Excel** when you run it, the drop-down can't be
+  refreshed (the file is locked) — it tells you to close Excel and run again.
+  Labels still print correctly either way.
+- To point at a specific master, run `python make_labels.py --master "C:\path\to\Barcoding.xlsx"`,
+  or put that path/folder in `master_location.txt`. Use `--no-sync` to skip it.
 
 ## Files
 

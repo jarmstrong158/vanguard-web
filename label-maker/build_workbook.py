@@ -106,7 +106,7 @@ def build(source_path, out_path):
     ws.column_dimensions["D"].width = 8
     ws.column_dimensions["E"].width = 60
 
-    # --- Reference tab (self-contained copy) --------------------------------
+    # --- Reference tab (self-contained copy; also backs the drop-down) ------
     ref = wb.create_sheet("Reference")
     ref["A1"], ref["B1"], ref["C1"] = "SKU", "Description", "Barcode"
     for c in ("A1", "B1", "C1"):
@@ -119,14 +119,13 @@ def build(source_path, out_path):
     ref.column_dimensions["B"].width = 60
     ref.column_dimensions["C"].width = 30
 
-    # --- Hidden helper that backs the drop-down -----------------------------
-    helper = wb.create_sheet("_SKUs")
-    for idx, (sku, _desc) in enumerate(items, start=1):
-        helper.cell(idx, 1, sku)
-    helper.sheet_state = "hidden"
-
-    n = len(items)
-    name = DefinedName("SKUList", attr_text=f"_SKUs!$A$1:$A${n}")
+    # Dynamic named range: auto-sizes to however many SKUs the Reference tab
+    # holds, so refreshing the Reference tab is all that's needed to update the
+    # drop-down (no fixed row count to maintain).
+    name = DefinedName(
+        "SKUList",
+        attr_text="=OFFSET(Reference!$A$2,0,0,COUNTA(Reference!$A:$A)-1,1)",
+    )
     wb.defined_names.add(name)
 
     # Drop-down (data validation) on the 8 input cells
@@ -140,7 +139,8 @@ def build(source_path, out_path):
     dv.add(f"B{first_row}:B{last_row}")
 
     wb.save(out_path)
-    print(f"Wrote {out_path}  (input rows B{first_row}:B{last_row})")
+    print(f"Wrote {out_path}  ({len(items)} SKUs, input rows "
+          f"B{first_row}:B{last_row})")
 
 
 if __name__ == "__main__":

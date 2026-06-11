@@ -1,0 +1,6 @@
+# runtime artifacts created when the tool runs
+__pycache__/
+labels_to_print.pdf
+master_location.txt
+*.tmp
+~$*.xlsx
