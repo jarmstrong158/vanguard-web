@@ -47,6 +47,8 @@ MARGIN_TOP = (PAGE_H - (ROWS * LABEL_H + (ROWS - 1) * ROW_GAP)) / 2
 SKU_FONT = "Helvetica-Bold"
 SKU_MAX_SIZE = 22          # SKU starts big...
 SKU_MIN_SIZE = 8           # ...and auto-shrinks until it fits one line
+PAREN_SIZE = 18           # the empty "(  )" stock-count box at the SKU's right
+PAREN_GAP = 24            # blank space inside the parens for hand-writing
 DESC_FONT, DESC_SIZE = "Helvetica", 6.5   # "very small" per request
 DESC_MAX_LINES = 2
 BIN_FONT, BIN_SIZE = "Helvetica-Bold", 10
@@ -132,8 +134,16 @@ def draw_label(c, x, y, item):
     inner_w = LABEL_W - 2 * PAD
     cx = x + LABEL_W / 2
 
+    # Reserve a "(  )" box at the right of the SKU line for the hand-written
+    # stock count. The SKU is then centered in (and auto-scaled to) what's left.
+    paren_box_w = (stringWidth("(", SKU_FONT, PAREN_SIZE)
+                   + PAREN_GAP
+                   + stringWidth(")", SKU_FONT, PAREN_SIZE))
+    sku_region_w = inner_w - paren_box_w - BLOCK_GAP
+
     # --- size each element up front so we can center the stack vertically ---
-    sku_size = fit_sku_size(item["sku"], inner_w)
+    sku_size = fit_sku_size(item["sku"], sku_region_w)
+    sku_line_h = max(sku_size, PAREN_SIZE)
     desc_lines = fit_lines(item["desc"], DESC_FONT, DESC_SIZE, inner_w,
                            DESC_MAX_LINES)
     bin_text = f"BIN: {item['bin']}" if item["bin"] else None
@@ -148,7 +158,7 @@ def draw_label(c, x, y, item):
     bar_block_h = bar_bars_h + bar_text_h
 
     # heights of each block (in draw order)
-    blocks = [("sku", sku_size)]
+    blocks = [("sku", sku_line_h)]
     if desc_lines:
         blocks.append(("desc", len(desc_lines) * (DESC_SIZE + 1)))
     if bin_text:
@@ -160,8 +170,16 @@ def draw_label(c, x, y, item):
 
     for kind, h in blocks:
         if kind == "sku":
+            baseline = cursor - sku_line_h
+            # SKU centered in the region left of the parens box
             c.setFont(SKU_FONT, sku_size)
-            c.drawCentredString(cx, cursor - sku_size, item["sku"])
+            c.drawCentredString(x + PAD + sku_region_w / 2, baseline,
+                                item["sku"])
+            # empty "(  )" at the far right for the hand-written stock count
+            right_x = x + LABEL_W - PAD
+            c.setFont(SKU_FONT, PAREN_SIZE)
+            c.drawRightString(right_x, baseline, ")")
+            c.drawString(right_x - paren_box_w, baseline, "(")
         elif kind == "desc":
             c.setFont(DESC_FONT, DESC_SIZE)
             ty = cursor
