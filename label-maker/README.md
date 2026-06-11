@@ -22,11 +22,16 @@ to fit), the **BIN** you type in, and a scannable **Code 39 barcode** of the SKU
 
 ## One-time setup
 
-1. Install [Python 3](https://www.python.org/downloads/) (check "Add Python to PATH").
-2. In this folder, install the two packages:
-   ```
-   pip install -r requirements.txt
-   ```
+1. Install [Python 3](https://www.python.org/downloads/) (check **"Add Python to PATH"**).
+
+That's it on Windows — the first time you run **`Make Labels.bat`** it checks for
+the two required packages (`openpyxl`, `reportlab`) and **auto-installs them** if
+they're missing.
+
+If you prefer to install them yourself (or aren't on Windows):
+```
+pip install -r requirements.txt
+```
 
 ## Everyday use
 
