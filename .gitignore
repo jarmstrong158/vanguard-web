@@ -4,3 +4,7 @@ sim/out.cjs
 *.log
 .DS_Store
 .vite/
+
+# Python
+__pycache__/
+*.pyc
