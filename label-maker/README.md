@@ -15,23 +15,24 @@ to fit), the **BIN** you type in, and a scannable **Code 39 barcode** of the SKU
 | File | What it is |
 |------|------------|
 | `Barcoding_Label_Maker.xlsx` | The workbook you use. Has a **Print Labels** input tab + a **Reference** tab. |
-| `make_labels.py` | Reads the input tab and writes `labels_to_print.pdf`. |
-| `Make Labels.bat` | Windows: double-click to run `make_labels.py` and open the PDF. |
+| `make_labels.py` | Reads the input tab and writes `labels_to_print.pdf`. Self-installs what it needs. |
 | `build_workbook.py` | Rebuilds `Barcoding_Label_Maker.xlsx` when the master SKU list changes. |
-| `requirements.txt` | Python packages needed (`openpyxl`, `reportlab`). |
+| `requirements.txt` | Python packages used (`openpyxl`, `reportlab`) — installed automatically. |
+| `Make Labels.bat` | *(optional)* Windows double-click shortcut. Not required — you can run `make_labels.py` directly. |
+
+## Sharing with coworkers
+
+Only two files are needed: **`make_labels.py`** and **`Barcoding_Label_Maker.xlsx`**.
+Both can be emailed (Gmail allows `.py` and `.xlsx`). Each coworker just needs
+**Python 3** installed — the script installs `openpyxl`/`reportlab` itself on the
+first run. No `.bat` to send.
 
 ## One-time setup
 
 1. Install [Python 3](https://www.python.org/downloads/) (check **"Add Python to PATH"**).
 
-That's it on Windows — the first time you run **`Make Labels.bat`** it checks for
-the two required packages (`openpyxl`, `reportlab`) and **auto-installs them** if
-they're missing.
-
-If you prefer to install them yourself (or aren't on Windows):
-```
-pip install -r requirements.txt
-```
+That's the only setup. The first time `make_labels.py` runs, it auto-installs the
+two packages it needs (`openpyxl`, `reportlab`) — needs internet that one time.
 
 ## Everyday use
 
@@ -42,10 +43,8 @@ pip install -r requirements.txt
    - **Bin #** and **Letter** — type them in (e.g. `360` and `D` → `BIN: 360-D`).
    - Leave a row blank to skip it (fewer than 8 labels is fine).
 3. **Save** the workbook.
-4. Run the script:
-   - Windows: double-click **`Make Labels.bat`**, or
-   - Any OS: `python make_labels.py`
-5. `labels_to_print.pdf` opens — print it on your Avery sheet.
+4. Run **`make_labels.py`** — double-click it, or run `python make_labels.py`.
+5. `labels_to_print.pdf` is created and opens — print it on your Avery sheet.
 
 > Tip: print at **100% / Actual Size** (not "Fit to page") so the labels line up
 > with the Avery stock.

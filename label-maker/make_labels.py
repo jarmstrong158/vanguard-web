@@ -11,13 +11,53 @@ Each label shows:
     * a scannable Code 39 barcode of the SKU (with the SKU printed under it)
 
 Usage:
-    python make_labels.py
-    python make_labels.py --xlsx Barcoding_Label_Maker.xlsx --out labels_to_print.pdf
+    Double-click this file, or run:
+        python make_labels.py
+        python make_labels.py --xlsx Barcoding_Label_Maker.xlsx --out labels.pdf
+
+The first time it runs it auto-installs the two packages it needs
+(openpyxl, reportlab) -- no separate setup step required.
 
 No barcode font needs to be installed -- reportlab draws real Code 39 barcodes.
 """
 import argparse
+import importlib
+import os
+import subprocess
+import sys
 import warnings
+
+
+def ensure_packages():
+    """Make sure openpyxl and reportlab are importable; install them if not.
+
+    Lets a coworker run this with nothing but Python installed -- no need to
+    distribute a .bat or run pip by hand first.
+    """
+    missing = []
+    for pkg in ("openpyxl", "reportlab"):
+        try:
+            importlib.import_module(pkg)
+        except ImportError:
+            missing.append(pkg)
+    if not missing:
+        return
+    print(f"First-time setup: installing {', '.join(missing)} "
+          f"(needs internet, one time only)...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install",
+                               "--quiet", *missing])
+    except Exception as exc:                       # pip missing / offline / etc.
+        print("\nCould not install the required packages automatically.")
+        print(f"  Reason: {exc}")
+        print("\nFix: open a Command Prompt and run this, then try again:")
+        print(f'  "{sys.executable}" -m pip install openpyxl reportlab')
+        input("\nPress Enter to close...")
+        sys.exit(1)
+    importlib.invalidate_caches()
+
+
+ensure_packages()
 
 import openpyxl
 from reportlab.lib.pagesizes import letter
@@ -235,10 +275,27 @@ def build_pdf(rows, out_path):
     c.save()
 
 
-if __name__ == "__main__":
+def open_file(path):
+    """Open the finished PDF in the default viewer (best effort)."""
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(path)                       # noqa: type-checker
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+    except Exception:
+        pass
+
+
+def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--xlsx", default="Barcoding_Label_Maker.xlsx")
     ap.add_argument("--out", default="labels_to_print.pdf")
+    ap.add_argument("--no-pause", action="store_true",
+                    help="don't wait for Enter when finished (for scripting)")
+    ap.add_argument("--no-open", action="store_true",
+                    help="don't open the PDF when finished")
     args = ap.parse_args()
 
     rows = read_rows(args.xlsx)
@@ -247,3 +304,23 @@ if __name__ == "__main__":
         print(f"  {it['sku']:<24} BIN {it['bin'] or '-':<8} {it['desc'][:40]}")
     build_pdf(rows, args.out)
     print(f"Wrote {args.out}")
+    if not args.no_open:
+        open_file(args.out)
+    return args
+
+
+if __name__ == "__main__":
+    pause = True
+    try:
+        parsed = main()
+        pause = not parsed.no_pause
+    except SystemExit:
+        raise
+    except Exception:
+        import traceback
+        print("\nSomething went wrong:\n")
+        traceback.print_exc()
+        print("\nCommon causes: the workbook is open in Excel, the file name "
+              "is different, or no SKUs were picked yet.")
+    if pause:
+        input("\nDone. Press Enter to close...")
