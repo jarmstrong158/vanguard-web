@@ -42,10 +42,15 @@ LABEL_W = (PAGE_W - 2 * MARGIN_X - (COLS - 1) * COL_GAP) / COLS
 LABEL_H = (PAGE_H - MARGIN_TOP - MARGIN_BOTTOM - (ROWS - 1) * ROW_GAP) / ROWS
 
 # ---- Fonts ------------------------------------------------------------------
-SKU_FONT, SKU_SIZE = "Helvetica-Bold", 12
+SKU_FONT = "Helvetica-Bold"
+SKU_MAX_SIZE = 22          # SKU starts big...
+SKU_MIN_SIZE = 8           # ...and auto-shrinks until it fits one line
 DESC_FONT, DESC_SIZE = "Helvetica", 6.5   # "very small" per request
 DESC_MAX_LINES = 2
-BIN_FONT, BIN_SIZE = "Helvetica-Bold", 9
+BIN_FONT, BIN_SIZE = "Helvetica-Bold", 10
+BAR_HEIGHT = 0.42 * inch
+BAR_WIDTH = 0.012 * inch
+BLOCK_GAP = 5              # vertical gap between SKU / desc / bin / barcode
 
 
 def read_rows(xlsx_path):
@@ -111,40 +116,67 @@ def fit_lines(text, font, size, max_width, max_lines):
     return lines
 
 
+def fit_sku_size(sku, max_width):
+    """Largest SKU font size (within bounds) that fits on one line."""
+    size = SKU_MAX_SIZE
+    while size > SKU_MIN_SIZE and stringWidth(sku, SKU_FONT, size) > max_width:
+        size -= 0.5
+    return size
+
+
 def draw_label(c, x, y, item):
-    """Draw one label with its lower-left corner at (x, y)."""
+    """Draw one label, with every element centered horizontally and the whole
+    stack centered vertically inside the label cell."""
     inner_w = LABEL_W - 2 * PAD
-    cursor_y = y + LABEL_H - PAD
+    cx = x + LABEL_W / 2
 
-    # SKU (top)
-    cursor_y -= SKU_SIZE
-    c.setFont(SKU_FONT, SKU_SIZE)
-    c.drawString(x + PAD, cursor_y, item["sku"])
+    # --- size each element up front so we can center the stack vertically ---
+    sku_size = fit_sku_size(item["sku"], inner_w)
+    desc_lines = fit_lines(item["desc"], DESC_FONT, DESC_SIZE, inner_w,
+                           DESC_MAX_LINES)
+    bin_text = f"BIN: {item['bin']}" if item["bin"] else None
 
-    # BIN (right-aligned on the SKU line, if present)
-    if item["bin"]:
-        c.setFont(BIN_FONT, BIN_SIZE)
-        c.drawRightString(x + LABEL_W - PAD, cursor_y, f"BIN: {item['bin']}")
-
-    # Description (small, truncated)
-    cursor_y -= 3
-    c.setFont(DESC_FONT, DESC_SIZE)
-    for line in fit_lines(item["desc"], DESC_FONT, DESC_SIZE, inner_w,
-                          DESC_MAX_LINES):
-        cursor_y -= (DESC_SIZE + 1)
-        c.drawString(x + PAD, cursor_y, line)
-
-    # Barcode (bottom, centered, scaled to fit the label width)
-    bar = code39.Standard39(item["sku"], barHeight=0.45 * inch,
-                            barWidth=0.012 * inch, humanReadable=True,
+    bar = code39.Standard39(item["sku"], barHeight=BAR_HEIGHT,
+                            barWidth=BAR_WIDTH, humanReadable=True,
                             checksum=False, quiet=False)
-    scale = min(1.0, inner_w / bar.width)
-    bw = bar.width * scale
-    c.saveState()
-    c.translate(x + (LABEL_W - bw) / 2, y + PAD)
-    c.scale(scale, scale)
-    bar.drawOn(c, 0, 0)
-    c.restoreState()
+    bar_scale = min(1.0, inner_w / bar.width)
+    bar_w = bar.width * bar_scale
+    bar_bars_h = bar.barHeight * bar_scale
+    bar_text_h = (bar.fontSize + 2) * bar_scale       # human-readable text below
+    bar_block_h = bar_bars_h + bar_text_h
+
+    # heights of each block (in draw order)
+    blocks = [("sku", sku_size)]
+    if desc_lines:
+        blocks.append(("desc", len(desc_lines) * (DESC_SIZE + 1)))
+    if bin_text:
+        blocks.append(("bin", BIN_SIZE))
+    blocks.append(("bar", bar_block_h))
+
+    total_h = sum(h for _, h in blocks) + BLOCK_GAP * (len(blocks) - 1)
+    cursor = y + LABEL_H / 2 + total_h / 2            # top of the stack
+
+    for kind, h in blocks:
+        if kind == "sku":
+            c.setFont(SKU_FONT, sku_size)
+            c.drawCentredString(cx, cursor - sku_size, item["sku"])
+        elif kind == "desc":
+            c.setFont(DESC_FONT, DESC_SIZE)
+            ty = cursor
+            for line in desc_lines:
+                ty -= (DESC_SIZE + 1)
+                c.drawCentredString(cx, ty, line)
+        elif kind == "bin":
+            c.setFont(BIN_FONT, BIN_SIZE)
+            c.drawCentredString(cx, cursor - BIN_SIZE, bin_text)
+        elif kind == "bar":
+            c.saveState()
+            # bars top sits at `cursor`; text renders below the bars
+            c.translate(cx - bar_w / 2, cursor - bar_bars_h)
+            c.scale(bar_scale, bar_scale)
+            bar.drawOn(c, 0, 0)
+            c.restoreState()
+        cursor -= (h + BLOCK_GAP)
 
     # thin guide border (comment out if your label stock is pre-cut)
     c.setLineWidth(0.25)
