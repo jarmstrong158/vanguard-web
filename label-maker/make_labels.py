@@ -100,204 +100,8 @@ MIN_BAR_WIDTH = 0.0075 * inch   # scannability floor (~7.5 mil) for long SKUs
 BLOCK_GAP = 5              # vertical gap between SKU / desc / bin / barcode
 
 
-# ---- Auto-sync with the master barcoding workbook --------------------------
-# When new codes get added to the master file (emailed around and saved on each
-# PC), the label maker finds the newest local master and refreshes its own SKU
-# list / descriptions on every run -- nothing to redistribute by hand.
-MASTER_HINT = "barcod"            # master files have this in their filename
-CONFIG_NAME = "master_location.txt"   # remembers where the master was found
-
-
-def looks_like_master(path):
-    """True if the workbook has the master's data tabs (List / Reference)."""
-    try:
-        wb = openpyxl.load_workbook(path, read_only=True)
-        sheets = set(wb.sheetnames)
-        wb.close()
-        return "List" in sheets or "Reference" in sheets
-    except Exception:
-        return False
-
-
-def candidate_dirs(script_dir):
-    """Folders to search for the master file, most-likely first."""
-    home = Path.home()
-    raw = [script_dir, Path.cwd(), home / "Downloads", home / "Desktop",
-           home / "Documents", home / "OneDrive" / "Desktop",
-           home / "OneDrive" / "Documents", home / "OneDrive"]
-    out, seen = [], set()
-    for d in raw:
-        try:
-            d = d.resolve()
-        except Exception:
-            continue
-        if d not in seen and d.is_dir():
-            seen.add(d)
-            out.append(d)
-    return out
-
-
-def find_master(script_dir, workbook_path):
-    """Locate the newest local master barcoding workbook, or None."""
-    wb_name = Path(workbook_path).name.lower()
-
-    def acceptable(f):
-        n = f.name.lower()
-        if n.startswith("~$") or n == wb_name or "label" in n:
-            return False
-        return True
-
-    # An explicit path/folder in master_location.txt wins.
-    dirs = []
-    cfg = script_dir / CONFIG_NAME
-    if cfg.exists():
-        try:
-            txt = cfg.read_text(encoding="utf-8").strip().strip('"')
-        except Exception:
-            txt = ""
-        if txt:
-            p = Path(txt)
-            if p.is_file() and looks_like_master(p):
-                return p
-            if p.is_dir():
-                dirs.append(p)
-    dirs += candidate_dirs(script_dir)
-
-    best, best_mtime = None, -1.0
-    # Pass 1: files whose name says "barcoding" (fast, validated by structure).
-    # Pass 2: any .xlsx that structurally looks like the master.
-    for require_hint in (True, False):
-        for d in dirs:
-            try:
-                files = list(d.glob("*.xlsx"))
-            except Exception:
-                continue
-            for f in files:
-                if not acceptable(f):
-                    continue
-                if require_hint and MASTER_HINT not in f.name.lower():
-                    continue
-                if not looks_like_master(f):
-                    continue
-                try:
-                    m = f.stat().st_mtime
-                except Exception:
-                    continue
-                if m > best_mtime:
-                    best, best_mtime = f, m
-        if best is not None:
-            return best
-    return None
-
-
-def load_master_items(path):
-    """Return {sku: description} from a master barcoding workbook.
-
-    The hidden 'List' tab (SKU col A, description col C) is the authoritative
-    superset; 'Reference' (SKU col A, desc col B) fills any gaps.
-    """
-    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
-    items = {}
-    if "List" in wb.sheetnames:
-        for row in wb["List"].iter_rows(values_only=True):
-            if row and row[0]:
-                desc = row[2] if len(row) > 2 else ""
-                items.setdefault(str(row[0]).strip(), str(desc or "").strip())
-    if "Reference" in wb.sheetnames:
-        for row in wb["Reference"].iter_rows(values_only=True):
-            if row and row[0]:
-                k = str(row[0]).strip()
-                if k not in items:
-                    desc = row[1] if len(row) > 1 else ""
-                    items[k] = str(desc or "").strip()
-    wb.close()
-    items.pop("SKU", None)            # ignore a stray header cell if present
-    return items
-
-
-def sync_workbook(xlsx_path, master_items):
-    """Refresh the label maker's Reference tab from master_items in place,
-    preserving the Print Labels picks, formatting, and dropdown.
-
-    Returns (added, removed, ok, reason).
-    """
-    wb = openpyxl.load_workbook(xlsx_path)        # keep formulas + validation
-    if "Reference" not in wb.sheetnames:
-        return [], [], False, "no Reference tab"
-    ref = wb["Reference"]
-
-    old = set()
-    for row in ref.iter_rows(min_row=2, max_col=1, values_only=True):
-        if row and row[0]:
-            old.add(str(row[0]).strip())
-    new = set(master_items)
-    added, removed = sorted(new - old), sorted(old - new)
-    if not added and not removed:
-        return [], [], True, "already current"
-
-    if ref.max_row > 1:
-        ref.delete_rows(2, ref.max_row - 1)
-    for idx, (sku, desc) in enumerate(sorted(master_items.items()), start=2):
-        ref.cell(idx, 1, sku)
-        ref.cell(idx, 2, desc)
-        ref.cell(idx, 3, f"*{sku}*")
-
-    # Save to a temp file, then swap in -- never corrupts the original, and
-    # fails cleanly if the workbook is open in Excel (file locked).
-    tmp = str(xlsx_path) + ".tmp"
-    try:
-        wb.save(tmp)
-        os.replace(tmp, xlsx_path)
-    except Exception as exc:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
-        return added, removed, False, f"file in use ({exc.__class__.__name__})"
-    return added, removed, True, "updated"
-
-
-def auto_sync(script_dir, xlsx_path, master_arg):
-    """Find the master and refresh the workbook. Returns the master item map
-    (for live description lookup) -- empty if no master was found."""
-    master = Path(master_arg) if master_arg else find_master(script_dir,
-                                                             xlsx_path)
-    if not master or not Path(master).is_file():
-        print("(No master barcoding file found nearby - using the SKU list "
-              "already in the workbook.)")
-        return {}
-    try:
-        items = load_master_items(master)
-    except Exception as exc:
-        print(f"(Could not read master '{Path(master).name}': {exc})")
-        return {}
-
-    if Path(xlsx_path).exists():
-        added, removed, ok, reason = sync_workbook(xlsx_path, items)
-        if ok and (added or removed):
-            print(f"Synced SKU list from {Path(master).name}: "
-                  f"+{len(added)} new, -{len(removed)} removed.")
-            if added:
-                print("  New: " + ", ".join(added[:8])
-                      + (" ..." if len(added) > 8 else ""))
-        elif ok:
-            print(f"SKU list already up to date ({Path(master).name}).")
-        else:
-            print(f"NOTE: could not refresh the dropdown - {reason}.")
-            print("      Close the workbook in Excel, then run again, to add "
-                  "the newest codes to the drop-down.")
-    # Remember where the master lives for next time.
-    try:
-        (script_dir / CONFIG_NAME).write_text(str(Path(master).parent),
-                                              encoding="utf-8")
-    except Exception:
-        pass
-    return items
-
-
-def read_rows(xlsx_path, master_items=None):
+def read_rows(xlsx_path):
     """Return a list of dicts {sku, desc, bin} from the Print Labels tab."""
-    master_items = master_items or {}
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
     if "Print Labels" not in wb.sheetnames:
         raise SystemExit(f"'Print Labels' tab not found in {xlsx_path}")
@@ -322,9 +126,8 @@ def read_rows(xlsx_path, master_items=None):
         bin_parts = [str(p).strip() for p in (bin_no, bin_letter)
                      if p not in (None, "")]
         bin_str = "-".join(bin_parts)
-        # prefer live master data, then the Reference tab, then Excel's cache
-        desc = (master_items.get(sku) or desc_by_sku.get(sku)
-                or str(ws.cell(r, 5).value or "").strip())
+        # prefer the Reference tab lookup, fall back to Excel's cached value
+        desc = desc_by_sku.get(sku) or str(ws.cell(r, 5).value or "").strip()
         rows.append({"sku": sku, "desc": desc, "bin": bin_str})
     return rows
 
@@ -488,11 +291,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--xlsx", default="Barcoding_Label_Maker.xlsx")
     ap.add_argument("--out", default="labels_to_print.pdf")
-    ap.add_argument("--master", default=None,
-                    help="path to the master barcoding workbook "
-                         "(auto-detected if omitted)")
-    ap.add_argument("--no-sync", action="store_true",
-                    help="skip refreshing the SKU list from the master")
     ap.add_argument("--no-pause", action="store_true",
                     help="don't wait for Enter when finished (for scripting)")
     ap.add_argument("--no-open", action="store_true",
@@ -505,11 +303,7 @@ def main():
     if not xlsx_path.exists() and (script_dir / args.xlsx).exists():
         xlsx_path = script_dir / args.xlsx
 
-    master_items = {}
-    if not args.no_sync:
-        master_items = auto_sync(script_dir, xlsx_path, args.master)
-
-    rows = read_rows(str(xlsx_path), master_items)
+    rows = read_rows(str(xlsx_path))
     print(f"{len(rows)} label(s) selected:")
     for it in rows:
         print(f"  {it['sku']:<24} BIN {it['bin'] or '-':<8} {it['desc'][:40]}")
