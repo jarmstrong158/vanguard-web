@@ -30,16 +30,18 @@ warnings.filterwarnings("ignore")
 
 # ---- Avery sheet geometry (tweak here to match your exact label stock) ------
 PAGE_W, PAGE_H = letter            # 8.5 x 11 in points (612 x 792)
-COLS, ROWS = 2, 4                  # 8 labels per sheet
-MARGIN_X = 0.25 * inch             # left/right page margin
-MARGIN_TOP = 0.5 * inch            # top page margin
-MARGIN_BOTTOM = 0.5 * inch         # bottom page margin
-COL_GAP = 0.20 * inch              # gap between the two columns
-ROW_GAP = 0.10 * inch              # gap between rows
+COLS, ROWS = 2, 4                  # 8 labels per sheet (2 across, 4 down)
+
+# Fixed label size: 3.5 in wide x 2 in tall
+LABEL_W = 3.5 * inch
+LABEL_H = 2.0 * inch
+COL_GAP = 0.25 * inch              # gap between the two columns
+ROW_GAP = 0.20 * inch              # gap between rows
 PAD = 0.12 * inch                  # inner padding inside each label
 
-LABEL_W = (PAGE_W - 2 * MARGIN_X - (COLS - 1) * COL_GAP) / COLS
-LABEL_H = (PAGE_H - MARGIN_TOP - MARGIN_BOTTOM - (ROWS - 1) * ROW_GAP) / ROWS
+# Center the whole grid of labels on the page
+MARGIN_X = (PAGE_W - (COLS * LABEL_W + (COLS - 1) * COL_GAP)) / 2
+MARGIN_TOP = (PAGE_H - (ROWS * LABEL_H + (ROWS - 1) * ROW_GAP)) / 2
 
 # ---- Fonts ------------------------------------------------------------------
 SKU_FONT = "Helvetica-Bold"
