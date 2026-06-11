@@ -46,7 +46,7 @@ MARGIN_TOP = (PAGE_H - (ROWS * LABEL_H + (ROWS - 1) * ROW_GAP)) / 2
 # ---- Fonts ------------------------------------------------------------------
 SKU_FONT = "Helvetica-Bold"
 SKU_MAX_SIZE = 22          # SKU starts big...
-SKU_MIN_SIZE = 8           # ...and auto-shrinks until it fits one line
+SKU_MIN_SIZE = 7           # ...and auto-shrinks until it fits one line
 PAREN_SIZE = 18           # the empty "(  )" stock-count box at the SKU's right
 PAREN_GAP = 24            # blank space inside the parens for hand-writing
 SKU_PAREN_GAP = 5         # tight gap between the SKU and the "(  )"
@@ -54,7 +54,8 @@ DESC_FONT, DESC_SIZE = "Helvetica", 6.5   # "very small" per request
 DESC_MAX_LINES = 2
 BIN_FONT, BIN_SIZE = "Helvetica-Bold", 10
 BAR_HEIGHT = 0.42 * inch
-BAR_WIDTH = 0.012 * inch
+BAR_WIDTH = 0.012 * inch        # preferred narrow-bar width
+MIN_BAR_WIDTH = 0.0075 * inch   # scannability floor (~7.5 mil) for long SKUs
 BLOCK_GAP = 5              # vertical gap between SKU / desc / bin / barcode
 
 
@@ -149,9 +150,17 @@ def draw_label(c, x, y, item):
                            DESC_MAX_LINES)
     bin_text = f"BIN: {item['bin']}" if item["bin"] else None
 
+    # Build the barcode to fill the label width while keeping FULL height: only
+    # thin the bars as needed, never below MIN_BAR_WIDTH (scannable floor).
+    probe = code39.Standard39(item["sku"], barHeight=BAR_HEIGHT,
+                              barWidth=BAR_WIDTH, humanReadable=True,
+                              checksum=False, quiet=False)
+    fit_bw = BAR_WIDTH * inner_w / probe.width
+    bw = min(BAR_WIDTH, max(MIN_BAR_WIDTH, fit_bw))
     bar = code39.Standard39(item["sku"], barHeight=BAR_HEIGHT,
-                            barWidth=BAR_WIDTH, humanReadable=True,
+                            barWidth=bw, humanReadable=True,
                             checksum=False, quiet=False)
+    # last-resort uniform shrink only if an extreme SKU still overflows at floor
     bar_scale = min(1.0, inner_w / bar.width)
     bar_w = bar.width * bar_scale
     bar_bars_h = bar.barHeight * bar_scale
