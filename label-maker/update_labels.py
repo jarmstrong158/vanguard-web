@@ -22,6 +22,7 @@ The first run auto-installs the one package it needs (openpyxl).
 """
 import argparse
 import importlib
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -85,11 +86,57 @@ def candidate_dirs(script_dir):
     return out
 
 
+def _valid(mm, dd, yyyy):
+    if 1 <= mm <= 12 and 1 <= dd <= 31 and 1900 < yyyy < 2100:
+        return yyyy * 10000 + mm * 100 + dd
+    return None
+
+
+def date_in_name(name):
+    """Pull the date out of a filename like 'Barcoding_121825.xlsx' (MMDDYY)
+    and return it as a comparable YYYYMMDD integer, or None if there isn't one.
+
+    Understands MMDDYY, MMDDYYYY, and YYYYMMDD, contiguous or separated by
+    -, _, /, . or spaces. If several dates appear, the newest wins.
+    """
+    stem = name.rsplit(".", 1)[0]
+    found = []
+    # separated, e.g. 12-18-25 or 12_18_2025
+    for mm, dd, yy in re.findall(
+            r"(?<!\d)(\d{1,2})[\-_/. ](\d{1,2})[\-_/. ](\d{2,4})(?!\d)", stem):
+        yy = int(yy)
+        v = _valid(int(mm), int(dd), yy if yy > 99 else 2000 + yy)
+        if v:
+            found.append(v)
+    # contiguous 8-digit: MMDDYYYY or YYYYMMDD
+    for s in re.findall(r"(?<!\d)(\d{8})(?!\d)", stem):
+        found.append(_valid(int(s[:2]), int(s[2:4]), int(s[4:]))
+                     or _valid(int(s[4:6]), int(s[6:]), int(s[:4])))
+    # contiguous 6-digit: MMDDYY
+    for s in re.findall(r"(?<!\d)(\d{6})(?!\d)", stem):
+        found.append(_valid(int(s[:2]), int(s[2:4]), 2000 + int(s[4:])))
+    found = [v for v in found if v]
+    return max(found) if found else None
+
+
 def find_master(script_dir):
-    """Locate the newest local master barcoding workbook, or None."""
+    """Locate the newest local master barcoding workbook, or None.
+
+    Chosen by the date in the filename (e.g. Barcoding_121825.xlsx -> 12/18/25);
+    files without a date in the name fall back to their last-modified time.
+    """
     def acceptable(f):
         n = f.name.lower()
         return not (n.startswith("~$") or "label" in n)
+
+    def rank(f):
+        d = date_in_name(f.name)
+        try:
+            mtime = f.stat().st_mtime
+        except Exception:
+            mtime = -1.0
+        # dated files always beat undated ones; then newest date, then mtime
+        return (1 if d is not None else 0, d or 0, mtime)
 
     dirs = []
     cfg = script_dir / CONFIG_NAME
@@ -106,7 +153,7 @@ def find_master(script_dir):
                 dirs.append(p)
     dirs += candidate_dirs(script_dir)
 
-    best, best_mtime = None, -1.0
+    best, best_key = None, None
     # Pass 1: files named like the master; Pass 2: any xlsx that looks like it.
     for require_hint in (True, False):
         for d in dirs:
@@ -121,12 +168,9 @@ def find_master(script_dir):
                     continue
                 if not looks_like_master(f):
                     continue
-                try:
-                    m = f.stat().st_mtime
-                except Exception:
-                    continue
-                if m > best_mtime:
-                    best, best_mtime = f, m
+                key = rank(f)
+                if best_key is None or key > best_key:
+                    best, best_key = f, key
         if best is not None:
             return best
     return None
@@ -226,7 +270,12 @@ def main():
         print("pass it directly:  python update_labels.py --master <path>")
         return args
 
-    print(f"Master:  {master}")
+    d = date_in_name(Path(master).name)
+    when = ""
+    if d:
+        when = f"  (dated {(d // 100) % 100:02d}/{d % 100:02d}/{d // 10000})"
+    print(f"Master:  {Path(master).name}{when}")
+    print(f"         {master}")
     items = load_master_items(master)
     print(f"Master has {len(items)} SKUs.")
 

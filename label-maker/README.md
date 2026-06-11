@@ -53,8 +53,9 @@ emailed around and saved on each PC):
 Notes:
 - It looks for an `.xlsx` whose name contains "barcod" (and otherwise looks like
   the master) in the script folder, Downloads, Desktop, Documents, and OneDrive,
-  and picks the most recently modified one. The location is remembered in
-  `master_location.txt`.
+  and picks the one with the **newest date in its filename** (e.g.
+  `Barcoding_121825.xlsx` → 12/18/25). It prints which file it chose. The
+  location is remembered in `master_location.txt`.
 - If `Barcoding_Label_Maker.xlsx` is **open in Excel**, close it first — the file
   is locked while open. The original is never modified on a failed update.
 - To point at a specific master: `python update_labels.py --master "C:\path\to\Barcoding.xlsx"`.
