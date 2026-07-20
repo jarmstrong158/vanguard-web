@@ -36,6 +36,41 @@ const CLINIC_CHAT: DialogSeq = { id: "clinic_chat", context: "Thornwall Clinic",
   { speaker: "Renna", text: "Rest whenever you need. The hearth's warm and the kettle's on." },
 ]};
 
+// ---- ambient townsfolk (flavor chatter that fleshes out the later hub towns) ----
+// WAYSTATION — a rest stop crowded with people fleeing the occupation to the south.
+const WAY_TRAVELER: DialogSeq = { id: "way_traveler", context: "A Weary Traveler", lines: [
+  { speaker: "Traveler", text: "Came up from the south with nothing but the coat on my back. Redhollow's not a town anymore — it's a cage with a fire in the middle." },
+  { speaker: "Traveler", text: "Warm yourself while the road's quiet, friend. It never stays that way for long." },
+]};
+const WAY_TRADER: DialogSeq = { id: "way_trader", context: "A Grounded Caravanner", lines: [
+  { speaker: "Caravanner", text: "I used to run salt and iron clear through to Ironhold. Now the Ashguard turn back anyone without a Valcrest seal." },
+  { speaker: "Caravanner", text: "If you're set on heading south, talk to old Fennick first. That one's read more than he lets on." },
+]};
+
+// REDHOLLOW — occupied by Valcrest; residents are watched, and reactive to liberation.
+const RED_RESIDENT_OCC: DialogSeq = { id: "red_resident_occ", context: "A Wary Resident", lines: [
+  { speaker: "Resident", text: "(low voice) Don't stand so close. They keep a list of who talks to strangers." },
+  { speaker: "Resident", text: "This place had a name that meant something once. Now the maps just say 'occupied.'" },
+]};
+const RED_RESIDENT_FREE: DialogSeq = { id: "red_resident_free", context: "A Hopeful Resident", lines: [
+  { speaker: "Resident", text: "You drove that captain out. First morning in a year I've seen the checkpoints stand empty." },
+  { speaker: "Resident", text: "Don't celebrate too loud, though. Valcrest doesn't forget a bloodied nose — and neither does the Archon." },
+]};
+const RED_DEFIANT: DialogSeq = { id: "red_defiant", context: "Keeper of the Ember", lines: [
+  { speaker: "Ashkeeper", text: "See the Kindlepeak? That glow's wrong — cold at the heart. Valcrest fire, not ours." },
+  { speaker: "Ashkeeper", text: "They took my son for keeping the old ember shrine lit. So now I keep it. They can hold the streets. Not the mountain." },
+]};
+
+// IRONHOLD — a guild meritocracy proud of its unconquered vertical city and its fighting pit.
+const IRON_ARTISAN: DialogSeq = { id: "iron_artisan", context: "A Stonecutter", lines: [
+  { speaker: "Stonecutter", text: "Two hundred years my guild's been carving this cliff. No army's ever taken Ironhold, and none ever will." },
+  { speaker: "Stonecutter", text: "Here a person's worth is cut, not inherited. You want a seat at the table? Earn it down in the pit." },
+]};
+const IRON_FAN: DialogSeq = { id: "iron_fan", context: "A Pit Regular", lines: [
+  { speaker: "Pit Regular", text: "You're here for Yara, aren't you? Everyone is. She's never lost — not once, not close." },
+  { speaker: "Pit Regular", text: "Put her on the ground and the whole city owes you a drink. Nobody's had to buy one yet." },
+]};
+
 // Interior rooms reachable through doors. The town map is unchanged; the venue just
 // swaps what the overworld renders. Shops open the ShopScene; houses play a line.
 const INTERIORS: Record<string, InteriorDef> = {
@@ -476,6 +511,11 @@ export class OverworldScene extends Phaser.Scene {
     this.building(g, 360, 92, "waystation_item", 0x6a8a64, 0x3a6a4a); sign(391, 68, "SUPPLIES", 0x7fe0a0);
     sign(270, 18, "WAYSTATION", 0xfff0d0);
     // (Fennick is rendered by the b_fennick beat at 270,256)
+    // ambient travelers — flavor that colors the road south
+    this.interactables = [
+      { x: 150, y: 290, sprite: "villager", label: "Traveler", labelColor: 0xc8d0a0, active: () => true, seq: () => WAY_TRAVELER },
+      { x: 440, y: 250, sprite: "elder", label: "Caravanner", labelColor: 0xd8c090, active: () => true, seq: () => WAY_TRADER },
+    ];
     this.px = 60; this.py = 200; this.needsTalk = false;
   }
 
@@ -508,6 +548,12 @@ export class OverworldScene extends Phaser.Scene {
     this.building(g, 444, 250, "emberreach_equip", 0x60504a, 0x2e2422); sign(475, 226, "SCAVENGED ARMS", 0xc0cbdc);
     sign(280, 18, "REDHOLLOW — OCCUPIED", 0xe0a0a0);
     // (Senna at 300,210 and the Rhogar beats are rendered by the story beats)
+    // townsfolk under occupation — the resident's mood flips once Rhogar is driven out
+    this.interactables = [
+      { x: 210, y: 300, sprite: "villager2", label: "Resident", labelColor: 0xd0a0a8,
+        active: () => true, seq: () => (flag("b_rhogar_done") ? RED_RESIDENT_FREE : RED_RESIDENT_OCC) },
+      { x: 110, y: 180, sprite: "elder", label: "Ashkeeper", labelColor: 0xe0906a, active: () => true, seq: () => RED_DEFIANT },
+    ];
     this.px = 64; this.py = 300; this.needsTalk = false;
   }
 
@@ -536,6 +582,11 @@ export class OverworldScene extends Phaser.Scene {
     this.building(g, 430, 92, "stonemantle_item", 0x6a8a64, 0x3a6a4a);  sign(461, 68, "GUILD STORES", 0x7fe0a0);
     this.building(g, 430, 250, "stonemantle_equip", 0x8a8a96, 0x52505a); sign(461, 226, "FORGE HALL", 0xc0cbdc);
     sign(280, 18, "IRONHOLD", 0xc8d0e0);
+    // guild-city locals — pride in the unconquered cliff and hype for the pit
+    this.interactables = [
+      { x: 150, y: 300, sprite: "villager", label: "Stonecutter", labelColor: 0xc0cbdc, active: () => true, seq: () => IRON_ARTISAN },
+      { x: 200, y: 110, sprite: "villager2", label: "Pit Regular", labelColor: 0xe0b070, active: () => true, seq: () => IRON_FAN },
+    ];
     this.px = 60; this.py = 176; // (b_ironhold arrival cinematic fires on entry)
   }
 
