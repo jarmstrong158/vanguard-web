@@ -614,6 +614,28 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private enemyTurn(actor: Combatant) {
+    // Boss gimmicks resolve first: rage ticks, pressure charges/telegraphs, and — when armed —
+    // force the unleash ability this turn (see combat.ts bossTurnStart).
+    const hook = this.battle.bossTurnStart(actor);
+    const act = () => {
+      let ab: AbilityDef, target: Combatant | null;
+      if (hook.forceAbility) {
+        ab = ABIL[hook.forceAbility];
+        target = ab.target === "self" ? actor : this.lowestHpParty();
+      } else {
+        const sel = this.chooseEnemyAction(actor); ab = sel.ab; target = sel.target;
+      }
+      if (!target) { this.beginTurn(); return; }
+      this.runAction(actor, ab, target).then(() => this.beginTurn());
+    };
+    if (hook.line) {
+      this.message(hook.line);
+      if (hook.forceAbility) { this.cameras.main.flash(220, 150, 40, 40); this.cameras.main.shake(240, 0.01); }
+      this.time.delayedCall(hook.forceAbility ? 720 : 540, act);
+    } else act();
+  }
+
+  private chooseEnemyAction(actor: Combatant): { ab: AbilityDef; target: Combatant | null } {
     const usable = actor.abilities.map((id) => ABIL[id]).filter((ab) => (ab.mp ?? 0) <= actor.mp);
     const buffs = usable.filter((ab) => ab.effect === "buff");
     const aoes = usable.filter((ab) => ab.target === "all_enemies");
@@ -621,20 +643,16 @@ export class BattleScene extends Phaser.Scene {
     const livingParty = this.battle.living("party").length;
     const buffed = actor.buffs.length > 0;
 
-    let ab: AbilityDef, target: Combatant | null;
-    if (actor.hasStatus("provoked") && actor.provokeSource?.alive && singles.length) {
-      ab = singles[Math.floor(Math.random() * singles.length)]; target = actor.provokeSource;
-    } else if (buffs.length && !buffed && Math.random() < 0.3) {
-      ab = buffs[Math.floor(Math.random() * buffs.length)]; target = actor;
-    } else if (aoes.length && livingParty >= 2 && Math.random() < 0.45) {
-      ab = aoes[Math.floor(Math.random() * aoes.length)]; target = this.lowestHpParty();
-    } else if (singles.length) {
-      ab = singles[Math.floor(Math.random() * singles.length)]; target = this.lowestHpParty();
-    } else {
-      ab = usable[0] ?? ABIL.enemy_bite; target = ab.target === "self" ? actor : this.lowestHpParty();
-    }
-    if (!target) { this.beginTurn(); return; }
-    this.runAction(actor, ab, target).then(() => this.beginTurn());
+    if (actor.hasStatus("provoked") && actor.provokeSource?.alive && singles.length)
+      return { ab: singles[Math.floor(Math.random() * singles.length)], target: actor.provokeSource };
+    if (buffs.length && !buffed && Math.random() < 0.3)
+      return { ab: buffs[Math.floor(Math.random() * buffs.length)], target: actor };
+    if (aoes.length && livingParty >= 2 && Math.random() < 0.45)
+      return { ab: aoes[Math.floor(Math.random() * aoes.length)], target: this.lowestHpParty() };
+    if (singles.length)
+      return { ab: singles[Math.floor(Math.random() * singles.length)], target: this.lowestHpParty() };
+    const ab = usable[0] ?? ABIL.enemy_bite;
+    return { ab, target: ab.target === "self" ? actor : this.lowestHpParty() };
   }
 
   private lowestHpParty(): Combatant | null {
@@ -751,6 +769,18 @@ export class BattleScene extends Phaser.Scene {
         if (big) this.cameras.main.shake(150, 0.008);
         const phaseLine = this.battle.maybePhase(target);
         if (phaseLine) { this.message(phaseLine); this.cameras.main.flash(220, 150, 40, 40); this.cameras.main.shake(280, 0.012); }
+        // reflect gimmick: some magic bounces back onto the caster unless the element pierces
+        const back = this.battle.reflectFor(actor, target, ab, r.damage);
+        if (back > 0) {
+          const av = this.views.get(actor)!;
+          this.message((target.def.mechanic as { line: string }).line);
+          av.img.setTintFill(0xff5a6a);
+          this.time.delayedCall(120, () => av.img.clearTint());
+          this.burst(av.baseX, av.baseY - 14, PAL.red);
+          this.popup(av.baseX, av.baseY - (actor.isParty ? 36 : 26), `${back}`, PAL.red);
+          this.cameras.main.shake(160, 0.008);
+          await this.delay(300);
+        }
       }
     } else if (ab.effect === "healing") {
       const r = this.battle.calc(actor, target, ab);

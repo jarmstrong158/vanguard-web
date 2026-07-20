@@ -28,6 +28,10 @@ export class Combatant {
   provokeSource: Combatant | null = null;
   alive = true;
   phased = false; // boss phase-2 triggered?
+  // --- boss mechanic state (see BossMechanic in data.ts) ---
+  rageStacks = 0;      // rage: compounding stat stacks applied so far
+  pressure = 0;        // pressure: the boss's own turns charged toward an unleash
+  pressureArmed = false; // pressure: telegraphed last turn -> erupts this turn
   tickCounter = 0; tickRate = 0;
   slot: number;
 
@@ -189,6 +193,40 @@ export class Battle {
     const m = c.def.phaseAt50.mult;
     (Object.keys(m) as StatKey[]).forEach((k) => { c.stats[k] = Math.round(c.stats[k] * (m[k] as number)); });
     return c.def.phaseAt50.line;
+  }
+
+  // ---- boss "gimmick" mechanics (BossMechanic in data.ts) ----
+  // Reflect: after `target` takes MAGICAL damage, bounce a fraction back onto the attacker,
+  // unless the hit's element pierces (the boss's weakness). Returns the reflected amount (0 = none).
+  reflectFor(attacker: Combatant, target: Combatant, ab: AbilityDef, dealt: number): number {
+    const m = target.def.mechanic;
+    if (!m || m.kind !== "reflect" || !target.alive) return 0;
+    if (ab.effect !== "magical" || dealt <= 0 || !attacker.alive) return 0;
+    if (m.pierce.includes(ab.element ?? "")) return 0; // e.g. fire/light burn through the Mirror
+    const back = Math.max(1, Math.floor(dealt * m.pct));
+    this.takeDamage(attacker, back);
+    return back;
+  }
+
+  // Run at the start of a boss's action. Advances rage/pressure and reports what to narrate:
+  //  - line: flavour banner to show (rage tick, pressure telegraph, or eruption)
+  //  - forceAbility: an ability id the AI must use this turn (the pressure unleash)
+  bossTurnStart(c: Combatant): { line?: string; forceAbility?: string } {
+    const m = c.def.mechanic;
+    if (!m || !c.alive) return {};
+    if (m.kind === "rage") {
+      // enrage only once wounded past the halfway mark; compound the stat each turn to a cap
+      if (c.hp <= c.maxHp * 0.5 && c.rageStacks < m.maxStacks) {
+        c.rageStacks++;
+        c.stats[m.stat] = Math.round(c.stats[m.stat] * (1 + m.perTurn));
+        return { line: m.line };
+      }
+    } else if (m.kind === "pressure") {
+      if (c.pressureArmed) { c.pressureArmed = false; c.pressure = 0; return { line: m.line, forceAbility: m.ability }; }
+      c.pressure++;
+      if (c.pressure >= m.charge) { c.pressureArmed = true; return { line: m.telegraph }; }
+    }
+    return {};
   }
   escapeChance(): number {
     const avg = (arr: Combatant[]) => { const a = arr.filter((u) => u.alive); return a.length ? a.reduce((s, u) => s + u.effStat("SPD"), 0) / a.length : 0; };

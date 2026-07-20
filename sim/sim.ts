@@ -72,7 +72,7 @@ function applyAction(b: Battle, actor: Combatant, act: Act) {
       if (!b.rollHit(actor)) continue;
       const r = b.calc(actor, tg, ab);
       if (r.healing > 0) b.heal(tg, r.healing);
-      else { b.takeDamage(tg, r.damage); b.maybePhase(tg); }
+      else { b.takeDamage(tg, r.damage); b.maybePhase(tg); b.reflectFor(actor, tg, ab, r.damage); }
     } else if (ab.effect === "healing") {
       b.heal(tg, b.calc(actor, tg, ab).healing);
     }
@@ -103,7 +103,15 @@ function simBattle(partyIds: string[], level: number, enemyIds: string[], trials
       if (!actor.alive) { turn++; continue; }
       if (actor.hasStatus("stun")) { b.tickStatuses(actor); turn++; continue; }
       b.tickStatuses(actor);
-      applyAction(b, actor, actor.isParty ? partyAction(b, actor) : enemyAction(b, actor));
+      let act: Act;
+      if (actor.isParty) act = partyAction(b, actor);
+      else {
+        const hook = b.bossTurnStart(actor); // rage/pressure gimmicks
+        act = hook.forceAbility
+          ? { ab: ABIL[hook.forceAbility], target: b.living("party").slice().sort((a, c) => a.hp - c.hp)[0] ?? null }
+          : enemyAction(b, actor);
+      }
+      applyAction(b, actor, act);
       if (b.sideWiped("enemy")) { result = "win"; break; }
       if (b.sideWiped("party")) { result = "lose"; break; }
       turn++;

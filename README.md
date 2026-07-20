@@ -52,6 +52,9 @@ continent of **Aethara** to confront the Archon who is draining the world of mag
 - **Classic-JRPG combat** — physical/magical damage formulas, elemental weaknesses & resistances,
   buffs/debuffs and damage-over-time, critical hits, a tick-rate turn queue, and **boss phase
   changes** at half health.
+- **Mechanic-driven bosses** — each major boss is a puzzle, not just a stat wall: **The Mirror**
+  *reflects* magic back at the caster (fight it with fire), **Rhogar** builds compounding *rage*
+  once wounded, and the **Hollow Stalker** charges a telegraphed *pressure* burst you must brace for.
 - **The Conduit system** — Maren doesn't cast spells; he *amplifies* allies. The **Conduit Pulse**
   is a free support action, and each ally's **Bond (BND)** stat scales how effective Maren's
   support is on them.
@@ -91,7 +94,18 @@ Turn order is driven by a **tick-rate queue** (a unit's turn comes up every `100
 faster units act more often). Physical damage is `ATK × power − DEF`; magical damage is
 `MAG × power − (DEF×0.3 + MAG×0.3)`, modified by elemental weaknesses, resistances, immunities,
 and absorptions. Statuses cover stat buffs/debuffs, stun, silence, poison/DoT, and regen. Bosses
-flip into a more dangerous **phase 2** at 50% HP.
+flip into a more dangerous **phase 2** at 50% HP, and carry a signature **gimmick** that turns the
+fight into a puzzle:
+
+- **Reflect** (The Mirror) — bounces a share of *magical* damage back onto the caster, unless the
+  hit uses an element it's weak to. Raw nukes punish you; fire and light pass straight through.
+- **Rage** (Rhogar) — once driven below half HP, he compounds his ATK every turn up to a cap, a
+  soft enrage clock that rewards finishing fast.
+- **Pressure** (Hollow Stalker) — charges over several turns, telegraphs on the last one, then
+  unleashes a heavy party-wide burst and resets. Guard the hit or race to interrupt it.
+
+The mechanics live in the real combat engine (`src/combat.ts`) and are exercised head­less by the
+balance sim (`sim/sim.ts`) and a focused regression test (`sim/mech_test.ts`).
 
 ### The Conduit
 Maren is an **Amplifier**: instead of dealing damage, he empowers the party through the Conduit
@@ -192,13 +206,14 @@ src/
   audio.ts           Procedural Web Audio chiptune + SFX
 sim/
   sim.ts             Headless balance simulator (reuses the real combat code)
+  mech_test.ts       Regression checks for the boss-mechanic logic
 docs/                README screenshots
 play.bat             Windows launcher
 ```
 
 ## Roadmap
 
-- Deeper, mechanic-driven boss fights (reflect/rage/pressure gimmicks).
+- ✅ **Deeper, mechanic-driven boss fights** (reflect / rage / pressure gimmicks) — *shipped.*
 - Bond quests that raise each ally's BND and unlock Maren's Attunements.
 - The remaining regions (Frosthollow, the Shattered Sea, the final confrontation).
 

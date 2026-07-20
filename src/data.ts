@@ -118,7 +118,20 @@ export interface UnitDef {
   marks?: [number, number];
   isBoss?: boolean;
   phaseAt50?: { mult: Partial<Record<StatKey, number>>; line: string };
+  mechanic?: BossMechanic;
 }
+
+// Signature "gimmicks" that make each boss a puzzle rather than a stat check.
+//  - reflect:  bounces a fraction of MAGICAL damage back at the caster, UNLESS the hit
+//              uses an element in `pierce` (the boss's weakness) — "fight it with fire."
+//  - rage:     once wounded past half HP, the boss compounds a stat each of its turns,
+//              up to `maxStacks` — a soft enrage clock that rewards ending the fight fast.
+//  - pressure: the boss charges for `charge` of its own turns (telegraphed on the last one),
+//              then unleashes `ability` (a heavy AoE) and resets — punish greed, guard the hit.
+export type BossMechanic =
+  | { kind: "reflect"; pct: number; pierce: string[]; line: string }
+  | { kind: "rage"; stat: StatKey; perTurn: number; maxStacks: number; line: string }
+  | { kind: "pressure"; charge: number; ability: string; telegraph: string; line: string };
 
 // Stats for a party member at a given level (floor of base + growth*(level-1)).
 export function statsAtLevel(def: UnitDef, level: number) {
@@ -192,6 +205,7 @@ export const ABIL: Record<string, AbilityDef> = {
   enemy_shadow_claw:  { id: "enemy_shadow_claw",  name: "Shadow Claw",  mp: 0, target: "single_enemy", effect: "physical", power: 2.0, element: "dark" },
   enemy_dark_pulse:   { id: "enemy_dark_pulse",   name: "Dark Pulse",   mp: 6, target: "single_enemy", effect: "magical",  power: 1.8, element: "dark" },
   enemy_shadow_lunge: { id: "enemy_shadow_lunge", name: "Shadow Lunge", mp: 0, target: "single_enemy", effect: "physical", power: 2.5, element: "dark" },
+  enemy_hollow_rupture:{ id: "enemy_hollow_rupture",name: "Hollow Rupture",mp: 0, target: "all_enemies",  effect: "magical",  power: 1.7, element: "dark" },
   enemy_charge:     { id: "enemy_charge",     name: "Charge",     mp: 0, target: "single_enemy", effect: "physical", power: 2.8 },
   enemy_fire_breath:{ id: "enemy_fire_breath",name: "Fire Breath",mp: 8, target: "all_enemies",  effect: "magical",  power: 1.5, element: "fire" },
   enemy_shield_wall:{ id: "enemy_shield_wall",name: "Shield Wall",mp: 4, target: "self",         effect: "buff",     applies: "def_up_large" },
@@ -239,14 +253,16 @@ export const ENEMY_DEFS: Record<string, UnitDef> = {
     ai: "brute", abilities: ["enemy_charge", "enemy_slash", "roundhouse"], level: 9, xp: 60, marks: [20, 30] },
   the_mirror: { id: "the_mirror", name: "The Mirror", theme: "mirror", hp: 640, mp: 80, ATK: 34, DEF: 10, MAG: 44, SPD: 14, LCK: 10,
     element: "dark", weaknesses: ["fire", "light"], immunities: ["dark"], ai: "mirror", abilities: ["enemy_mirror_echo", "enemy_lattice_pulse"],
-    level: 12, xp: 120, marks: [20, 30], isBoss: true, phaseAt50: { mult: { MAG: 1.35, SPD: 1.2 }, line: "The echo destabilizes — reflecting harder!" } },
+    level: 12, xp: 120, marks: [20, 30], isBoss: true, phaseAt50: { mult: { MAG: 1.35, SPD: 1.2 }, line: "The echo destabilizes — reflecting harder!" },
+    mechanic: { kind: "reflect", pct: 0.5, pierce: ["fire", "light"], line: "The Mirror throws it back!" } },
   shadow_creeper: { id: "shadow_creeper", name: "Shadow Creeper", theme: "shade", hp: 95, mp: 8, ATK: 16, DEF: 7, MAG: 10, SPD: 9, LCK: 2,
     element: "dark", weaknesses: ["light"], ai: "swarm", abilities: ["enemy_shadow_claw", "enemy_bite"], level: 9, xp: 20, marks: [14, 22] },
   gloom_moth: { id: "gloom_moth", name: "Gloom Moth", theme: "moth", hp: 72, mp: 16, ATK: 4, DEF: 5, MAG: 18, SPD: 10, LCK: 3,
     element: "dark", weaknesses: ["light"], ai: "caster", abilities: ["enemy_dark_pulse", "enemy_poison_sting"], level: 9, xp: 22, marks: [16, 24] },
   hollow_stalker: { id: "hollow_stalker", name: "Hollow Stalker", theme: "stalker", hp: 600, mp: 40, ATK: 40, DEF: 6, MAG: 30, SPD: 15, LCK: 3,
     element: "dark", weaknesses: ["light"], immunities: ["dark"], ai: "assassin", abilities: ["enemy_shadow_claw", "enemy_dark_pulse", "enemy_shadow_lunge"],
-    level: 8, xp: 80, marks: [60, 90], isBoss: true, phaseAt50: { mult: { SPD: 1.3, ATK: 1.25 }, line: "The Stalker splits into the dark!" } },
+    level: 8, xp: 80, marks: [60, 90], isBoss: true, phaseAt50: { mult: { SPD: 1.3, ATK: 1.25 }, line: "The Stalker splits into the dark!" },
+    mechanic: { kind: "pressure", charge: 3, ability: "enemy_hollow_rupture", telegraph: "The Stalker coils in the dark...", line: "The Stalker erupts!" } },
   ashguard_scout: { id: "ashguard_scout", name: "Ashguard Scout", theme: "ashguard", hp: 30, mp: 0, ATK: 6, DEF: 6, MAG: 3, SPD: 6, LCK: 2,
     element: "fire", weaknesses: ["ice", "water"], resistances: ["fire"], ai: "assassin", abilities: ["enemy_slash"], level: 4, xp: 14, marks: [10, 18] },
   ashguard_soldier: { id: "ashguard_soldier", name: "Ashguard Soldier", theme: "ashguard", hp: 64, mp: 10, ATK: 11, DEF: 9, MAG: 4, SPD: 6, LCK: 2,
@@ -255,7 +271,8 @@ export const ENEMY_DEFS: Record<string, UnitDef> = {
     element: "fire", weaknesses: ["ice"], resistances: ["fire"], ai: "tank",
     abilities: ["enemy_slash", "enemy_charge", "enemy_fire_breath", "enemy_shield_wall"],
     level: 10, xp: 120, marks: [80, 120], isBoss: true,
-    phaseAt50: { mult: { ATK: 1.4, SPD: 1.2 }, line: "Rhogar roars with rage!" } },
+    phaseAt50: { mult: { ATK: 1.15, SPD: 1.2 }, line: "Rhogar roars with rage!" },
+    mechanic: { kind: "rage", stat: "ATK", perTurn: 0.10, maxStacks: 4, line: "Rhogar's fury mounts!" } },
 };
 
 // Per-character palette (code-driven art).
