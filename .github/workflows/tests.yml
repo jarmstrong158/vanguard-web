@@ -17,7 +17,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node-version: ['20', '22']
+        # Node 24 only, deliberately. package-lock.json is written by npm 11,
+        # and npm 10 (which ships with node 20 and 22) rejects it outright:
+        # `npm ci` reports "Missing: esbuild@... from lock file" for entries
+        # that are demonstrably present. This ships to a browser, so no node
+        # version is a runtime target — only the toolchain — and matching CI to
+        # the npm that writes the lock keeps `npm ci` authoritative rather than
+        # downgrading to `npm install` and silently re-resolving on every run.
+        node-version: ['24']
 
     steps:
       - uses: actions/checkout@v4
