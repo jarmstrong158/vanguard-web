@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
+import { facingOf, hasOverworldSheet, overworldTexture, playOverworld, preloadOverworldSheets, registerOverworldAnims, type OwDir } from "./overworldSprites";
 import { playBgm, sfx } from "./audio";
 import { activeParty, addMarks, assignBounty, awardXp, bountyReward, clearBounty, creatureName, currentObjective, flag, gatesFor, getBounty, getMarks, getOwResume, getStory, getVenue, giveEquip, partyNeedsRest, pendingBeats, restParty, setLoc, setOwResume, setVenue, spendMarks, Q_TOLLER, Q_TOLLER_THANKS, Q_WALL_REPAIR, type DialogSeq, type Gate, type MapId, type StoryStep, type WorldBeat } from "./story";
 
@@ -59,7 +60,8 @@ const INTERIORS: Record<string, InteriorDef> = {
 export class OverworldScene extends Phaser.Scene {
   private step!: StoryStep;
   private map: MapId = "thornwall";
-  private player!: Phaser.GameObjects.Image;
+  private player!: Phaser.GameObjects.Sprite;
+  private facing: OwDir = "south";
   private px = 192; private py = 96;
   private worldW = W; private worldH = H;
   private solids: Rect[] = [];
@@ -111,8 +113,13 @@ export class OverworldScene extends Phaser.Scene {
     this.encDist = 0; this.encThreshold = Phaser.Math.Between(120, 230);
   }
 
+  preload() {
+    preloadOverworldSheets(this);
+  }
+
   create() {
     bakeAll(this);
+    registerOverworldAnims(this);
     this.venue = getVenue();
     let bannerText: string, hint: string, bannerCol = PAL.gold;
     if (this.venue === "field") {
@@ -149,7 +156,12 @@ export class OverworldScene extends Phaser.Scene {
     }
     this.renderInteractables();
 
-    this.player = this.add.image(this.px, this.py, SPRITE_KEY.maren).setOrigin(0.5, 1).setDepth(50);
+    // A Sprite, not an Image: Maren now has four views and a walk cycle. The sheet
+    // cell is 32x48 with the figure feet-aligned to the bottom, so origin (0.5, 1)
+    // still puts his feet on this.py exactly as the single 32x32 image did.
+    this.player = this.add.sprite(this.px, this.py, overworldTexture("maren")).setOrigin(0.5, 1).setDepth(50);
+    if (hasOverworldSheet(this, "maren")) playOverworld(this.player, "maren", this.facing, false);
+    else this.player.setTexture(SPRITE_KEY.maren);      // sheet missing: the baked front view
 
     // scrolling camera that follows the player across the (larger-than-screen) world
     this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
@@ -713,6 +725,12 @@ export class OverworldScene extends Phaser.Scene {
     if (!this.blocked(this.px, ny)) this.py = ny;
     this.player.setPosition(Math.round(this.px), Math.round(this.py));
     const moved = Math.hypot(this.px - ox, this.py - oy);
+    if (hasOverworldSheet(this, "maren")) {
+      // Face the INPUT, not the displacement: walking into a wall still turns you,
+      // which is how you talk to an NPC you are standing against.
+      this.facing = facingOf(dx, dy, this.facing);
+      playOverworld(this.player, "maren", this.facing, moved > 0.01);
+    }
 
     if (this.venue && this.venue !== "field") { this.updateInterior(); return; }
 
