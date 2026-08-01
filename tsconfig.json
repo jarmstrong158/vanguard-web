@@ -4,6 +4,11 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // Vite does the bundling; the tsc step in `npm run build` is a typecheck
+    // only. Without this it emits .js next to every source file, and vitest
+    // then runs the suite twice -- the second time against stale compiled
+    // output, which can pass while the real source is broken.
+    "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": false,
     "esModuleInterop": true,
