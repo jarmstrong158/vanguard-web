@@ -8,6 +8,7 @@ import { PartyMenuScene } from "./PartyMenuScene";
 import { ShopScene } from "./ShopScene";
 import { resumeAudio, toggleMute } from "./audio";
 import { applyShot, beginShotMode } from "./debugBoot";
+import { installTextShadows } from "./art/ui";
 
 const GAME_W = 384;
 const GAME_H = 216;
@@ -28,6 +29,7 @@ function integerZoom(): number {
 }
 
 function start() {
+  installTextShadows();
   // Screenshot-harness mode (?shot=...). Seeds RNG before any scene is built;
   // a no-op during normal play. See BRIEF.md §5.
   const shot = beginShotMode();

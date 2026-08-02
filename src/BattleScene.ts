@@ -27,6 +27,10 @@ interface ActorView {
   displayedHp: number;
   displayedMp: number;
   dead: boolean;
+  /** Per-instance offset for the idle breathe. Without it the whole party
+   *  rises and falls as one organism and the scene reads as a sprite sheet
+   *  rather than a group of characters (BRIEF §2.6). */
+  breathPhase: number;
 }
 
 
@@ -159,7 +163,9 @@ export class BattleScene extends Phaser.Scene {
     this.uiLayer.add(bar);
     this.uiLayer.add(nameText);
 
-    this.views.set(unit, { c: unit, img, bar, nameText, baseX: x, baseY: y, displayedHp: unit.hp, displayedMp: unit.mp, dead: false });
+    this.views.set(unit, { c: unit, img, bar, nameText, baseX: x, baseY: y, displayedHp: unit.hp, displayedMp: unit.mp, dead: false,
+      // deterministic, but coprime-ish per actor so no two land in step
+      breathPhase: (this.views.size * 437) % 1600 });
   }
 
   // ----------------------------------------------------------- UI
@@ -312,7 +318,20 @@ export class BattleScene extends Phaser.Scene {
   }
 
   // ----------------------------------------------------------- per-frame
-  update(_: number, dt: number) {
+  /** 2-frame breathe on a 1px offset, style guide §5.2/§5.3 (~600ms/frame).
+   *  Runs only in the command phase: during an action the tweens own y, and
+   *  two writers on one property produces a stutter, not a breath. */
+  private breathe(now: number) {
+    if (this.phase !== "command") return;
+    this.views.forEach((v) => {
+      if (!v.c.alive || v.dead) return;
+      const up = Math.floor(((now + v.breathPhase) % 1600) / 800) === 1;
+      v.img.y = v.baseY - (up ? 1 : 0);
+    });
+  }
+
+  update(now: number, dt: number) {
+    this.breathe(now);
     this.views.forEach((v) => {
       v.displayedHp += (v.c.hp - v.displayedHp) * Math.min(1, dt / 90);
       v.displayedMp += (v.c.mp - v.displayedMp) * Math.min(1, dt / 90);
@@ -660,6 +679,12 @@ export class BattleScene extends Phaser.Scene {
   private tweenP(cfg: Phaser.Types.Tweens.TweenBuilderConfig): Promise<void> {
     return new Promise((res) => { cfg.onComplete = () => res(); this.tweens.add(cfg); });
   }
+
+  /** Freeze for two frames on impact. The pause is what sells weight -- the
+   *  flash and knockback alone read as the sprite twitching. */
+  private hitstop(frames = 2): Promise<void> {
+    return new Promise((res) => this.time.delayedCall(Math.round(frames * (1000 / 60)), () => res()));
+  }
   private delay(ms: number): Promise<void> { return new Promise((res) => this.time.delayedCall(ms, () => res())); }
 
   private async runAction(actor: Combatant, ab: AbilityDef, primary: Combatant | null) {
@@ -696,9 +721,12 @@ export class BattleScene extends Phaser.Scene {
       else {
         this.battle.takeDamage(target, r.damage);
         sfx(r.crit || r.label === "WEAK" ? "crit" : "hit");
+        // Three simultaneous cues or the hit reads as nothing happened
+        // (BRIEF §2.6): white flash, knockback, and a hitstop.
         tv.img.setTintFill(0xffffff);
         this.time.delayedCall(110, () => tv.img.clearTint());
         this.tweens.add({ targets: tv.img, x: tv.baseX + (actor.side === "party" ? -1 : 1) * 6, duration: 60, yoyo: true });
+        await this.hitstop();
         this.burst(cx, tv.baseY - 14, ab.element === "fire" ? PAL.red : PAL.clothHi);
         const big = r.crit || r.label === "WEAK";
         this.popup(cx, top, `${r.damage}`, r.crit ? PAL.gold : PAL.clothHi, big);

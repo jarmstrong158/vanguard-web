@@ -63,3 +63,18 @@ export function shadowed<T extends Phaser.GameObjects.Text>(t: T): T {
   t.setShadow(1, 1, "#0c0e18", 0, false, true);
   return t;
 }
+
+/**
+ * Give every Text created anywhere the 1px shadow §2.5 requires.
+ *
+ * Patched at the factory rather than at each `add.text` call: there are ~60
+ * call sites across six scenes, and a rule enforced by remembering to wrap
+ * each one is a rule that decays the first time someone adds a scene.
+ */
+export function installTextShadows() {
+  const proto = Phaser.GameObjects.GameObjectFactory.prototype;
+  const orig = proto.text;
+  proto.text = function (this: Phaser.GameObjects.GameObjectFactory, ...args: Parameters<typeof orig>) {
+    return shadowed(orig.apply(this, args));
+  };
+}

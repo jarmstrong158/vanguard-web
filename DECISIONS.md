@@ -2,6 +2,13 @@
 
 Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reason.
 
+## Milestone 6 (partial) — impact and idle
+
+- **Text shadows are installed by patching the Text factory once, not by wrapping ~60 `add.text` call sites.** A rule enforced by remembering to wrap each call is a rule that decays the first time someone adds a scene. Closes §8's text-legibility criterion across all six scenes, including the four never edited by hand.
+- **Idle breathe runs only in the command phase.** During an action the tweens own `img.y`, and two writers on one property produce a stutter rather than a breath. Phase offsets are per-actor and deterministic so no two are in step.
+- **Knockback stays at 6px against the brief's stated 1–2px.** At 384×216 with 32px sprites, 2px does not read as impact; the existing 6px does. The brief's figure was written before the canvas size was checked (it also assumed 320×180).
+- **Still outstanding in §2.6:** the four-phase attack timing table (anticipation/contact/follow-through/recovery) and secondary motion on hair and satchels. Not attempted, not deviated from.
+
 ## Milestone 5 — UI
 
 - **`ffWindow()` kept its name and signature but now delegates to `art/ui.ts`.** Five scenes call it; changing the look in one place beat touching five call sites, and the old name is accurate again only in spirit — it is no longer a Final Fantasy gradient window.
