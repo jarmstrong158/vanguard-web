@@ -2,6 +2,13 @@
 
 Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reason.
 
+## Milestone 7 (partial) — making the criteria measurable
+
+- **Palette tests assert the DECLARATIONS, not baked pixels.** Baking needs a canvas; a test that cannot run in CI is a test that stops running. Since every pixel is snapped to its character's declared palette at bake time, a bound on the declaration is a bound on the sprite.
+- **Two of my own test assumptions were wrong and were corrected, not the code.** (1) "Shadows always shift hue" fails for a base already sitting on the shadow target, and for dark bases where a few degrees of rotation quantises away in 8-bit. (2) "Skin rotates toward red, cloth rotates the other way" is false: from a ~27° base the short way to blue-violet *also* runs backwards through red, so direction carries no information. Replaced with the property that actually matters — shaded skin must stay in the warm band.
+- **`eye` is excluded from the base-clash check.** It is a 2px accent on skin, never adjacent to hair, and its job is to be the darkest thing on the face. The check did find a real bug first: `villager2.eye` was byte-identical to its hair, left over from extracting palettes out of draw code.
+- **Frame-time / 1% lows are NOT verified.** The harness drives the clock by hand, so its timings measure nothing about real rAF performance. §8's 60 FPS criterion remains asserted and unmeasured — it needs a separate rAF-mode probe, not this harness.
+
 ## Milestone 6 (partial) — impact and idle
 
 - **Text shadows are installed by patching the Text factory once, not by wrapping ~60 `add.text` call sites.** A rule enforced by remembering to wrap each call is a rule that decays the first time someone adds a scene. Closes §8's text-legibility criterion across all six scenes, including the four never edited by hand.

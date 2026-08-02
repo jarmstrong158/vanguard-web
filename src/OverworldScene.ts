@@ -623,14 +623,26 @@ export class OverworldScene extends Phaser.Scene {
     for (const ch of this.chests) {
       const flag = `chest_${this.map}_${ch.id}`;
       if (flags[flag]) continue;
-      const cont = this.add.container(ch.x, ch.y).setDepth(44);
+      // Rounded at the draw boundary (BRIEF §3): chest coordinates come from
+      // generated map data and are not integers, and a container's fraction is
+      // inherited by every child it holds.
+      const cont = this.add.container(Math.round(ch.x), Math.round(ch.y)).setDepth(44);
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.25); g.fillEllipse(0, 1, 16, 5);
       g.fillStyle(0x6b4a28, 1); g.fillRoundedRect(-7, -8, 14, 9, 2);
       g.fillStyle(0x8a6a3a, 1); g.fillRoundedRect(-7, -10, 14, 4, 2);
       g.fillStyle(0xe0b84a, 1); g.fillRect(-1, -10, 2, 11); g.fillRect(-7, -6, 14, 1);
       cont.add(g);
-      this.tweens.add({ targets: cont, y: ch.y - 2, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      // Tween a proxy and round on apply, rather than letting the tween write
+      // y directly (BRIEF §3). An eased tween emits continuous values, so a
+      // chest driven straight off one sits on a fractional coordinate for all
+      // but two frames of its cycle -- and so does every child of its container.
+      const bob = { v: 0 };
+      const baseY = Math.round(ch.y);
+      this.tweens.add({
+        targets: bob, v: -2, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut",
+        onUpdate: () => cont.setY(baseY + Math.round(bob.v)),
+      });
       this.chestViews.push({ x: ch.x, y: ch.y, ch, flag, img: cont });
     }
   }

@@ -108,7 +108,7 @@ export const HEROES = {
   davan: { skin: 0xb89a82, hood: 0x2a2733, cloak: 0x342f3e, dark: 0x1c1924, blade: 0xc0cbdc, eye: 0x3a4a4a },
   mirror: { mass: 0x1a1830, crack: 0x6ad8ff },
   villager:  { skin: 0xe0a878, hair: 0x4a3326, tunic: 0x9a7a52, eye: 0x2a2030 },
-  villager2: { skin: 0xc89a78, hair: 0x2a2030, tunic: 0x5a7a5a, eye: 0x2a2030 },
+  villager2: { skin: 0xc89a78, hair: 0x2a2030, tunic: 0x5a7a5a, eye: 0x1c1420 },
   elder:     { skin: 0xd8b89a, hair: 0xc0c0c8, tunic: 0x7a6a8a, eye: 0x2a2030 },
 };
 

@@ -1,0 +1,75 @@
+{
+  "items": [
+    {
+      "id": "k-ce2441c2",
+      "type": "memory",
+      "kind": "constraint",
+      "content": "Never judge a visual change by reasoning about the code. Run `npm run shots` and LOOK at docs/shots/<label>/, comparing against docs/shots/00-baseline/. Never ask the user what something looks like.",
+      "why": "This project exists as a web port for exactly one reason: in the Godot original the agent could not see rendered output, so every art pass round-tripped through a human reviewer and the visual bar in sprite_style_guide.md was never met. The harness removes that bottleneck. Reintroducing the human-as-eyeball loop wastes the entire reason the port exists.",
+      "tags": [
+        "visual",
+        "harness",
+        "workflow",
+        "screenshots",
+        "context-keeper"
+      ],
+      "scope": "local",
+      "project": "vanguard-web",
+      "source": {
+        "system": "context-keeper",
+        "ref": "con-001-e5b4"
+      },
+      "created_by": "jonny-desktop",
+      "created_at": "2026-08-02T01:53:16.030485+00:00",
+      "updated_at": "2026-08-02T01:53:16.030485+00:00",
+      "status": "active",
+      "trust": {
+        "recalls": 0,
+        "endorsements": [],
+        "projects": [
+          "vanguard-web"
+        ]
+      }
+    },
+    {
+      "id": "k-cae31758",
+      "type": "memory",
+      "kind": "constraint",
+      "content": "Skin shadows must use SHADOW_SKIN (rosy, hue 0.98); everything else uses SHADOW_COOL (blue-violet, 0.65). Hue interpolation always takes the short way around the circle. Never add a colour literal outside src/art/palette.ts, and give every migrated sprite a declared palette so bake() can snap to it.",
+      "why": "Pushing skin's 27-degree hue toward blue-violet travels through yellow-green, so the shaded half of a face comes out olive - the single most damaging artefact on a character sprite. The style guide asks for red-brown on skin specifically for this reason. Separately, derived shades, cast shadows and the outline blend each mint a new colour per application: Maren measured 57 distinct colours on one 32x32 sprite before snapping, which is what makes a cast stop reading as one piece of art.",
+      "tags": [
+        "sprites",
+        "shading",
+        "palette",
+        "colour",
+        "context-keeper"
+      ],
+      "scope": "local",
+      "project": "vanguard-web",
+      "source": {
+        "system": "context-keeper",
+        "ref": "con-002-57a4"
+      },
+      "created_by": "jonny-desktop",
+      "created_at": "2026-08-02T01:53:16.030485+00:00",
+      "updated_at": "2026-08-02T01:53:16.030485+00:00",
+      "status": "active",
+      "trust": {
+        "recalls": 0,
+        "endorsements": [],
+        "projects": [
+          "vanguard-web"
+        ]
+      }
+    }
+  ],
+  "imported": {
+    "context_keeper": [
+      "con-001-e5b4",
+      "con-002-57a4"
+    ],
+    "agentsync": [],
+    "agentsync_last": {},
+    "import": []
+  }
+}

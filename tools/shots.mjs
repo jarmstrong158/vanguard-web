@@ -138,6 +138,13 @@ async function main() {
       continue;
     }
 
+    // §8: no sprite is drawn at a fractional coordinate. Checked per scene,
+    // because the offenders differ by what each scene builds.
+    const grid = await page.evaluate("window.VG_SHOT.audit()");
+    if (grid.total > 0) {
+      failures.push(`${shot.id}: ${grid.total} object(s) on fractional coordinates -> ${grid.offenders.join("; ")}`);
+    }
+
     const raw = await page.evaluate("window.VG_SHOT.capture()");
     if (!raw || raw.length < 1000) {
       failures.push(`${shot.id}: canvas read back empty`);

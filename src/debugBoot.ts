@@ -250,6 +250,33 @@ export function applyShot(game: Phaser.Game, spec: ShotSpec) {
     }
   };
 
+  /**
+   * Count display-list objects sitting on a fractional coordinate.
+   *
+   * §3's rule is unenforceable by eye: at integer zoom a half-pixel offset
+   * reads as a slightly soft edge and you normalise to it within an hour. The
+   * harness fails the capture instead.
+   *
+   * Text is exempt -- Phaser centres it by measured width, which lands on
+   * halves for odd-width strings, and it renders to its own texture rather
+   * than sampling the sprite atlas.
+   */
+  const audit = (): { total: number; offenders: string[] } => {
+    const offenders: string[] = [];
+    for (const sc of game.scene.getScenes(true)) {
+      const walk = (objs: Phaser.GameObjects.GameObject[]) => {
+        for (const o of objs) {
+          const t = o as unknown as { x?: number; y?: number; type?: string; texture?: { key?: string } };
+          if (t.type === "Text" || typeof t.x !== "number" || typeof t.y !== "number") continue;
+          if (Number.isInteger(t.x) && Number.isInteger(t.y)) continue;
+          offenders.push(`${sc.scene.key}/${t.type ?? "?"}${t.texture?.key ? ":" + t.texture.key : ""} @ ${t.x},${t.y}`);
+        }
+      };
+      walk(sc.children.getChildren());
+    }
+    return { total: offenders.length, offenders: offenders.slice(0, 12) };
+  };
+
   /** Read the canvas back as a PNG data URL. Native 384x216 -- no viewport
    *  scaling, no device-pixel-ratio, no compositing required, which is both
    *  more faithful than a viewport screenshot and works in a hidden tab. */
@@ -264,8 +291,13 @@ export function applyShot(game: Phaser.Game, spec: ShotSpec) {
   // Exposed so the harness can push past a transition, hold a later animation
   // frame, or grab the canvas -- all without a rebuild.
   (window as unknown as {
-    VG_SHOT: { advance: (n: number) => Promise<void>; capture: () => string; spec: ShotSpec };
-  }).VG_SHOT = { advance, capture, spec };
+    VG_SHOT: {
+      advance: (n: number) => Promise<void>;
+      capture: () => string;
+      audit: () => { total: number; offenders: string[] };
+      spec: ShotSpec;
+    };
+  }).VG_SHOT = { advance, capture, audit, spec };
 
   void (async () => {
     await settle();
