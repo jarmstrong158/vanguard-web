@@ -1,42 +1,9 @@
 import Phaser from "phaser";
+import { MAREN, marenPalette, PAL } from "./art/palette";
+import { blend, highlight, ramp, shadeIndex, shadow, SHADOW_SKIN } from "./art/shading";
 
-// Environment / UI palette (Endesga-32 derived). Character sprites derive their
-// own shades from canonical base colors via hue-shift helpers below.
-export const PAL = {
-  out: 0x181425,
-  gold: 0xfee761, red: 0xe43b44, green: 0x63c74d, cyan: 0x2ce8f5, clothHi: 0xffffff, steel: 0x8b9bb4, steelSh: 0x5a6988, steelHi: 0xc0cbdc,
-  sky1: 0x3a4466, sky2: 0x68386c, sky3: 0xb55088, sun: 0xf6757a, sunHi: 0xfee761,
-  mtn: 0x262b44, mtnLt: 0x3a4466,
-  grass: 0x265c42, grassDk: 0x193c3e, grassHi: 0x3e8948,
-  panel: 0x181425, panelEdge: 0x3a4466, panelHi: 0x5a6988,
-};
-
-// ---- color math (hue-shifted shading per docs/sprite_style_guide.md §2.3) ----
-const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-function toHSV(c: number) {
-  const r = ((c >> 16) & 255) / 255, g = ((c >> 8) & 255) / 255, b = (c & 255) / 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  let h = 0;
-  if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
-  return { h, s: mx === 0 ? 0 : d / mx, v: mx };
-}
-function fromHSV(h: number, s: number, v: number) {
-  const i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
-  let r = 0, g = 0, b = 0;
-  switch (((i % 6) + 6) % 6) {
-    case 0: r = v; g = t; b = p; break; case 1: r = q; g = v; b = p; break; case 2: r = p; g = v; b = t; break;
-    case 3: r = p; g = q; b = v; break; case 4: r = t; g = p; b = v; break; default: r = v; g = p; b = q;
-  }
-  return (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
-}
-// shadow: darken + shift hue cool (toward blue/purple). highlight: lighten + shift warm.
-function shadow(c: number, amt = 0.26) { const { h, s, v } = toHSV(c); return fromHSV(lerp(h, 0.65, amt * 0.3), clamp01(s * (1 - amt * 0.15)), clamp01(v * (1 - amt))); }
-function highlight(c: number, amt = 0.2) { const { h, s, v } = toHSV(c); return fromHSV(lerp(h, 0.12, amt * 0.4), clamp01(s * (1 + amt * 0.1)), clamp01(v + amt)); }
-function blend(a: number, b: number, t: number) {
-  const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255, br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
-  return (Math.round(lerp(ar, br, t)) << 16) | (Math.round(lerp(ag, bg, t)) << 8) | Math.round(lerp(ab, bb, t));
-}
+// Re-exported: PAL's home is art/palette.ts now, but scenes import it from here.
+export { PAL };
 
 const hex = (c: number) => "#" + (c >>> 0).toString(16).padStart(6, "0").slice(-6);
 
@@ -57,9 +24,34 @@ interface PC {
   rect: (x: number, y: number, w: number, h: number, c: number) => void;
   // shaded block: base fill, warm highlight on top+left, cool shadow on bottom+right
   block: (x: number, y: number, w: number, h: number, base: number) => void;
+  // volumetric fill: three shades banded along the top-left light direction, so
+  // the area reads as a rounded form rather than a flat panel with a rim.
+  form: (x: number, y: number, w: number, h: number, base: number, shHue?: number) => void;
+  // push already-drawn pixels toward their own shadow -- for cast shadows,
+  // which is what actually creates depth at 32px.
+  darken: (x: number, y: number, w: number, h: number, amt?: number) => void;
 }
 
-function bake(scene: Phaser.Scene, key: string, w: number, h: number, draw: (p: PC) => void) {
+/** Nearest entry in a fixed palette, squared-distance in RGB. */
+function snapTo(pal: number[], c: number): number {
+  const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+  let best = pal[0], bestD = Infinity;
+  for (const q of pal) {
+    const dr = ((q >> 16) & 255) - r, dg = ((q >> 8) & 255) - g, db = (q & 255) - b;
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bestD) { bestD = d; best = q; }
+  }
+  return best;
+}
+
+/**
+ * @param palette when given, every pixel written is snapped to its nearest
+ * entry. Derived shades, cast shadows and outline blends otherwise mint a new
+ * colour each time they are applied -- Maren measured 57 distinct colours
+ * before snapping. Bounding the palette is what makes a character read as one
+ * cohesive piece of art rather than a gradient soup. Style guide §2.1.
+ */
+function bake(scene: Phaser.Scene, key: string, w: number, h: number, draw: (p: PC) => void, palette?: number[]) {
   // Textures are deterministic and live in the global TextureManager. Re-baking
   // (remove+recreate) would invalidate the glTexture for any sprite in a *paused*
   // scene that still references this key (e.g. the overworld behind an overlay
@@ -70,13 +62,34 @@ function bake(scene: Phaser.Scene, key: string, w: number, h: number, draw: (p: 
   const id = (x: number, y: number) => y * w + x;
   const colorAt = new Map<number, number>();
   const p: PC = {
-    px: (x, y, c) => { if (x < 0 || y < 0 || x >= w || y >= h) return; ctx.fillStyle = hex(c); ctx.fillRect(x, y, 1, 1); colorAt.set(id(x, y), c); },
+    px: (x, y, c) => {
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      const q = palette ? snapTo(palette, c) : c;
+      ctx.fillStyle = hex(q); ctx.fillRect(x, y, 1, 1); colorAt.set(id(x, y), q);
+    },
     rect: (x, y, rw, rh, c) => { for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) p.px(x + i, y + j, c); },
     block: (x, y, rw, rh, base) => {
       const sh = shadow(base), hl = highlight(base);
       p.rect(x, y, rw, rh, base);
       p.rect(x, y, rw, 1, hl); p.rect(x, y, 1, rh, hl);          // top + left lit
       p.rect(x, y + rh - 1, rw, 1, sh); p.rect(x + rw - 1, y, 1, rh, sh); // bottom + right shade
+    },
+    form: (x, y, rw, rh, base, shHue) => {
+      // Below 4px there is no room for three bands; a rim is all that fits.
+      if (rw < 4 || rh < 4) { p.block(x, y, rw, rh, base); return; }
+      const r = ramp(base, 0.26, 0.2, shHue);
+      const shades = [r.hi, r.base, r.sh];
+      for (let j = 0; j < rh; j++)
+        for (let i = 0; i < rw; i++)
+          p.px(x + i, y + j, shades[shadeIndex(x + i, y + j, x, y, rw, rh)]);
+    },
+    darken: (x, y, rw, rh, amt = 0.3) => {
+      for (let j = 0; j < rh; j++) {
+        for (let i = 0; i < rw; i++) {
+          const cur = colorAt.get(id(x + i, y + j));
+          if (cur !== undefined) p.px(x + i, y + j, shadow(cur, amt));
+        }
+      }
     },
   };
   draw(p);
@@ -91,7 +104,10 @@ function bake(scene: Phaser.Scene, key: string, w: number, h: number, draw: (p: 
     else if (y < h - 1 && colorAt.has(id(x, y + 1))) n = colorAt.get(id(x, y + 1));
     if (n !== undefined) adds.push([x, y, blend(n, PAL.out, 0.6)]);
   }
-  for (const [x, y, col] of adds) { ctx.fillStyle = hex(col); ctx.fillRect(x, y, 1, 1); }
+  for (const [x, y, col] of adds) {
+    const q = palette ? snapTo(palette, col) : col;
+    ctx.fillStyle = hex(q); ctx.fillRect(x, y, 1, 1);
+  }
   tex.refresh();
 }
 
@@ -102,34 +118,86 @@ function bake(scene: Phaser.Scene, key: string, w: number, h: number, draw: (p: 
 
 // Shared chibi base: feet, torso, arms+hands, then the big head. The caller layers
 // hair, eyes and props on top. Centered near x=15; figure spans y4..30.
-function chibi(p: PC, skin: number, body: number, pants: number) {
-  p.block(11, 26, 4, 4, pants); p.block(17, 26, 4, 4, pants);                       // legs / feet
+// `paint` selects the fill: p.block for the flat-rim look the rest of the cast
+// still uses, p.form for the volumetric three-band shading. Migrating a
+// character is a one-argument change (BRIEF.md milestone 4).
+function chibi(
+  p: PC, skin: number, body: number, pants: number,
+  paint: (x: number, y: number, w: number, h: number, c: number) => void = p.block,
+  headW = 12,
+) {
+  paint(11, 26, 4, 4, pants); paint(17, 26, 4, 4, pants);                           // legs / feet
   p.rect(11, 29, 4, 1, shadow(pants, 0.6)); p.rect(17, 29, 4, 1, shadow(pants, 0.6)); // sole shadow
-  p.block(10, 15, 12, 12, body);                                                    // torso (taller)
-  p.block(8, 18, 2, 7, body); p.block(22, 18, 2, 7, body);                          // arms
+  paint(10, 15, 12, 12, body);                                                      // torso (taller)
+  p.block(8, 18, 2, 7, body); p.block(22, 18, 2, 7, body);                          // arms (too thin to band)
   p.rect(8, 24, 2, 2, skin); p.rect(22, 24, 2, 2, skin);                            // hands
-  p.block(10, 6, 12, 9, skin);                                                      // head (smaller, ~body width)
+  // A head the same width as the torso merges with it into one rectangle: no
+  // neck, no shoulder line, and the flat-fill silhouette becomes an unreadable
+  // blob. A narrowed head plus an actual neck row cuts a notch on both sides,
+  // which is what makes the figure read as a figure from outline alone.
+  // Default keeps the old geometry for characters not yet migrated
+  // (BRIEF.md milestone 4).
+  if (headW < 12) {
+    p.form(16 - (headW >> 1), 6, headW, 8, skin, SHADOW_SKIN);
+    p.rect(14, 14, 4, 1, shadow(skin, 0.3, SHADOW_SKIN)); // neck, in the chin's shadow
+  } else {
+    paint(10, 6, 12, 9, skin);
+  }
 }
 
+// Maren — rebuilt to the style guide bar (BRIEF.md milestone 2). Every colour
+// comes from MAREN in art/palette.ts; every shade is derived. Volumetric fills
+// via p.form, and three cast shadows, which are what actually read as depth at
+// this size.
 function drawMaren(p: PC) {
-  const skin = 0xe0a06a, hair = 0x4a3326, tunic = 0x76803a, vest = 0x355a30, sash = 0xf0b53c, pants = 0x6b4a32, ash = 0xc2a368, band = 0xe8dcb8;
-  // Ash Staff (held, right side), wooden with a small crystal knob
-  p.block(24, 7, 2, 21, ash);
-  p.block(23, 5, 4, 3, ash); p.px(24, 4, PAL.cyan); p.px(25, 5, highlight(PAL.cyan));
-  chibi(p, skin, tunic, pants);
-  // green vest over chest
-  p.block(11, 17, 10, 6, vest);
-  // golden sash (belt)
-  p.rect(10, 23, 12, 2, sash); p.rect(10, 23, 12, 1, highlight(sash));
-  // bandages wrapped around right arm
-  p.rect(22, 19, 2, 1, band); p.rect(22, 21, 2, 1, band);
-  // short practical hair framing the head
-  p.block(10, 4, 12, 4, hair); p.block(10, 7, 2, 3, hair); p.block(20, 7, 2, 3, hair);
-  // short separated brows + big hazel eyes with a faint gold Conduit glint
-  p.px(13, 9, shadow(skin, 0.4)); p.px(14, 9, shadow(skin, 0.4));
-  p.px(17, 9, shadow(skin, 0.4)); p.px(18, 9, shadow(skin, 0.4));
-  p.rect(13, 11, 2, 2, 0x2a2030); p.rect(17, 11, 2, 2, 0x2a2030);
-  p.px(14, 11, 0x6a5a8a); p.px(18, 11, 0x6a5a8a); // matched catch-lights
+  const skin = ramp(MAREN.skin, 0.26, 0.2, SHADOW_SKIN), hair = ramp(MAREN.hair), tunic = ramp(MAREN.tunic);
+  const vest = ramp(MAREN.vest), sash = ramp(MAREN.sash), staff = ramp(MAREN.staff);
+
+  // Ash Staff, held clear of the body: a shaft flush against the arm merges
+  // with it in silhouette and the staff stops reading as a held object.
+  p.form(26, 7, 2, 21, MAREN.staff);
+  p.form(25, 4, 4, 3, MAREN.staff);
+  p.px(26, 3, MAREN.conduit); p.px(27, 4, highlight(MAREN.conduit));
+  p.px(25, 6, staff.dark); // crystal seats into the wood
+
+  chibi(p, MAREN.skin, MAREN.tunic, MAREN.pants, p.form, 10);
+
+  // green vest over the chest, its own form so it does not flatten the torso
+  p.form(11, 17, 10, 6, MAREN.vest);
+  p.rect(11, 17, 10, 1, vest.hi);          // lit top edge catches the light
+  p.rect(11, 22, 10, 1, vest.dark);        // interior boundary, material dark, never black
+
+  // golden sash
+  p.rect(10, 23, 12, 2, sash.base);
+  p.rect(10, 23, 12, 1, sash.hi);
+  p.px(10, 24, sash.sh); p.px(21, 24, sash.sh);
+  // CAST SHADOW: sash onto the legs beneath it
+  p.darken(11, 25, 10, 1, 0.45);
+
+  // bandages wrapped around the right arm
+  p.rect(22, 19, 2, 1, MAREN.bandage); p.rect(22, 21, 2, 1, MAREN.bandage);
+
+  // short practical hair framing the narrowed head (x11..20)
+  p.form(11, 4, 10, 4, MAREN.hair);
+  p.form(11, 7, 2, 3, MAREN.hair); p.form(19, 7, 2, 3, MAREN.hair);
+  p.rect(11, 4, 10, 1, hair.hi);           // top plane catches the most light
+  // CAST SHADOW: hair onto the forehead -- the single most effective pixel row
+  // on the whole sprite for making the head read as a volume
+  p.darken(13, 8, 6, 1, 0.5);
+
+  // CAST SHADOW: chin onto the chest
+  p.darken(12, 15, 8, 1, 0.4);
+
+  // brows, then big hazel eyes with a faint gold Conduit glint
+  p.px(13, 9, skin.dark); p.px(14, 9, skin.dark);
+  p.px(17, 9, skin.dark); p.px(18, 9, skin.dark);
+  p.rect(13, 11, 2, 2, MAREN.eye); p.rect(17, 11, 2, 2, MAREN.eye);
+  p.px(14, 11, MAREN.eyeGlint); p.px(18, 11, MAREN.eyeGlint); // matched catch-lights
+  // cheek shading on the side away from the light
+  p.px(19, 12, skin.sh); p.px(19, 13, skin.sh);
+
+  // tunic hem separates the torso from the legs without a black line
+  p.rect(11, 26, 4, 1, tunic.dark); p.rect(17, 26, 4, 1, tunic.dark);
 }
 
 function drawKael(p: PC) {
@@ -421,7 +489,7 @@ function drawSpider(p: PC) {
 }
 
 export function bakeAll(scene: Phaser.Scene) {
-  bake(scene, "maren", 32, 32, drawMaren);
+  bake(scene, "maren", 32, 32, drawMaren, marenPalette());
   bake(scene, "yara", 32, 32, drawYara);
   bake(scene, "villager", 32, 32, (p) => townsfolk(p, 0xe0a878, 0x4a3326, 0x9a7a52));
   bake(scene, "villager2", 32, 32, (p) => townsfolk(p, 0xc89a78, 0x2a2030, 0x5a7a5a));

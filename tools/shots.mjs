@@ -31,6 +31,7 @@ const SHOTS = [
   { id: "overworld", grey: true },
   { id: "battle", grey: true },
   { id: "party", grey: false },
+  { id: "contact", grey: true },
 ];
 
 const CHROME_CANDIDATES = [

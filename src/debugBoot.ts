@@ -16,8 +16,54 @@
 import Phaser from "phaser";
 import { newStory, setStory, WORLD_BEATS, type MapId, type StoryState } from "./story";
 import { newRun, setRun } from "./run";
+import { bakeAll, SPRITE_KEY } from "./sprites";
+import { preloadOverworldSheets } from "./overworldSprites";
 
-export type ShotId = "title" | "overworld" | "battle" | "party";
+export type ShotId = "title" | "overworld" | "battle" | "party" | "contact";
+
+/**
+ * Contact sheet: every baked sprite side by side on a neutral mid-value ground
+ * (BRIEF.md §5, shot 5). This is the cohesion check -- a sprite whose light
+ * direction, outline treatment or shade count differs from the cast is obvious
+ * here and invisible in a scene, where it only ever appears alone.
+ *
+ * Mid-grey deliberately: a sprite judged against a dark battle background will
+ * be tuned too light, and against a light one too dark.
+ */
+class ContactScene extends Phaser.Scene {
+  constructor() { super("contact"); }
+  preload() { preloadOverworldSheets(this); }
+  create() {
+    bakeAll(this);
+    const GROUND = 0x6b6b73;
+    this.cameras.main.setBackgroundColor(GROUND);
+
+    // ?focus=<key> inspects one sprite at the largest integer scale that fits.
+    // &silhouette=1 flat-fills it, which is the readability test in BRIEF.md
+    // §2.2 -- a character must stay identifiable from outline alone.
+    const q = new URLSearchParams(window.location.search);
+    const focus = q.get("focus");
+    if (focus && this.textures.exists(focus)) {
+      const src = this.textures.get(focus).getSourceImage() as { width: number; height: number };
+      const z = Math.max(1, Math.floor(Math.min((384 * 0.8) / src.width, (216 * 0.8) / src.height)));
+      const img = this.add.image(192, 108, focus).setOrigin(0.5).setScale(z);
+      if (q.get("silhouette")) img.setTintFill(0x101018);
+      return;
+    }
+
+    const keys = [...new Set(Object.values(SPRITE_KEY))];
+    const cols = 8, cw = 48, ch = 54;
+    keys.forEach((key, i) => {
+      const cx = (i % cols) * cw + cw / 2;
+      const cy = Math.floor(i / cols) * ch + ch / 2 - 4;
+      if (!this.textures.exists(key)) return;
+      this.add.image(cx, cy, key).setOrigin(0.5, 0.5);
+      this.add
+        .text(cx, cy + ch / 2 - 9, key.slice(0, 8), { fontFamily: "Silkscreen", fontSize: "8px", color: "#1a1a20" })
+        .setOrigin(0.5, 0);
+    });
+  }
+}
 
 export interface ShotSpec {
   seed: number;
@@ -56,7 +102,7 @@ export function readShotSpec(): ShotSpec | null {
   const q = new URLSearchParams(window.location.search);
   const id = q.get("shot");
   if (!id) return null;
-  if (id !== "title" && id !== "overworld" && id !== "battle" && id !== "party") {
+  if (id !== "title" && id !== "overworld" && id !== "battle" && id !== "party" && id !== "contact") {
     console.warn(`[shot] unknown shot id "${id}"`);
     return null;
   }
@@ -164,6 +210,10 @@ export function applyShot(game: Phaser.Game, spec: ShotSpec) {
       break;
     case "party":
       game.scene.start("overworld", { kind: "overworld", map: SHOT_OW_LOC, goal: "" });
+      break;
+    case "contact":
+      if (!game.scene.getScene("contact")) game.scene.add("contact", ContactScene, false);
+      game.scene.start("contact");
       break;
   }
 
