@@ -16,13 +16,16 @@
         font-family: "Silkscreen", monospace;
         overflow: hidden;
       }
-      #game {
-        width: min(94vw, 1024px);
-        aspect-ratio: 16 / 9;
+      /* Shrink-wrap the canvas. Any width here would be a target for Phaser to
+         stretch to, which is what produced a fractional scale; the canvas now
+         sizes itself to an exact integer multiple and this just centres it. */
+      #game { line-height: 0; }
+      canvas {
+        display: block;
+        image-rendering: pixelated; image-rendering: crisp-edges;
         box-shadow: 0 16px 50px rgba(0,0,0,0.65);
-        border-radius: 4px; overflow: hidden;
+        border-radius: 4px;
       }
-      canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
     </style>
   </head>
   <body>

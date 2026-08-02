@@ -1,0 +1,31 @@
+[
+  {
+    "id": "con-001-e5b4",
+    "rule": "Never judge a visual change by reasoning about the code. Run `npm run shots` and LOOK at docs/shots/<label>/, comparing against docs/shots/00-baseline/. Never ask the user what something looks like.",
+    "reason": "This project exists as a web port for exactly one reason: in the Godot original the agent could not see rendered output, so every art pass round-tripped through a human reviewer and the visual bar in sprite_style_guide.md was never met. The harness removes that bottleneck. Reintroducing the human-as-eyeball loop wastes the entire reason the port exists.",
+    "triggering_incident": "sprite_style_guide.md line 207 states outright: 'The developer (user) serves as the visual reviewer since the AI cannot see the rendered result.' Milestone 1 of BRIEF.md was built specifically to retire that sentence.",
+    "enforced_by": "npm run shots (byte-identical across runs; any pixel diff vs baseline is a real change)",
+    "scope": "global",
+    "hardness": "absolute",
+    "related_to": [],
+    "tags": [
+      "visual",
+      "harness",
+      "workflow",
+      "screenshots"
+    ],
+    "retrieval_hints": [
+      "how do I check what the game looks like",
+      "screenshot the game",
+      "verify a sprite change",
+      "visual regression vanguard-web"
+    ],
+    "origin": "agent",
+    "schema_version": 4,
+    "status": "active",
+    "created_at": "2026-08-01T23:51:43.136830+00:00",
+    "updated_at": "2026-08-01T23:51:43.136830+00:00",
+    "verified_at": "2026-08-01T23:51:43.136830+00:00",
+    "verified_sha": "bcc9f79078b8475643020136531dc132d2eb9f9e"
+  }
+]

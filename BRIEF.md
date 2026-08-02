@@ -45,7 +45,7 @@ Do not stop at "the sprites are improved." Stop when a still frame pulled from a
 
 **No anti-aliasing.** `pixelArt: true` stays on. If a transform produces a fractional destination coordinate, that is a defect (§3).
 
-**Integer scaling is currently NOT enforced, and fixing that is in scope.** `main.ts` uses `Phaser.Scale.FIT`, which scales the canvas to arbitrary fractional multiples of 384×216 — so on most window sizes every pixel in the game is resampled to a non-integer size before it reaches the screen. No amount of sprite work survives that. Move to an integer-multiple scale mode (`Phaser.Scale.NONE` with a computed integer zoom, or `ScaleModes.ZOOM` pinned to `Math.floor`) and letterbox the remainder. This is milestone 1 work, not polish: until it lands, nothing rendered can be judged fairly, because what you see is not what was drawn.
+**Integer scaling is enforced, and must stay that way.** `main.ts` uses `Phaser.Scale.NONE` with a computed integer `zoom`, recomputed on resize, letterboxing the remainder. Do not reintroduce `Phaser.Scale.FIT`, and do not give `#game` a width — either one stretches the canvas to a fractional multiple of 384×216, at which point nearest-neighbour sampling gives some source pixels three screen pixels and their neighbours two. The pixel grid goes visibly uneven and no amount of sprite work survives it. Verify with the check in §8, not by eye: at 2.667× the unevenness reads as "slightly soft" and you will normalise to it.
 
 `docs/sprite_style_guide.md` in the Godot Vanguard repo is the authoritative art specification. Its palette rules, hue-shift helpers, sel-out rule, anatomy ratios, animation timings, and pitfall list are **already-decided constraints**, not suggestions. This brief does not restate them; read that document before writing a pixel. Where this brief and the style guide disagree, the style guide wins and you note the conflict in `DECISIONS.md`.
 
@@ -232,6 +232,7 @@ Verify each against fresh harness output, at 1× and 4×, and in motion.
 - Every hit shows flash, knockback, and hitstop together.
 - No two actors' idle animations are in phase.
 - No sprite is drawn at a fractional coordinate; the debug audit is clean in all five scenes.
+- The canvas displays at a whole-number multiple of 384×216: `rect.width / canvas.width` is an integer, and equals `rect.height / canvas.height`, at every window size.
 - 60 FPS with no frame over 16.6 ms.
 - `npm run build` is clean and `npm test` is green.
 
