@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { ABIL, CONDUIT_PULSES, ENEMY_DEFS, ITEMS, STATUS, type AbilityDef, type ItemDef } from "./data";
 import { Battle, Combatant } from "./combat";
+import { drawBattleBackdrop } from "./art/backdrop";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
 import { RUN, applyLevels, clearSave, defForParty, getRun, restParty, saveRun } from "./run";
 import { addBountyKills, addMarks, awardXp, getBnd, getCurHp, getCurMp, getEquip, getLevel, getStory, giveEquip, saveStory, setCurHpMp, XP_MULT, type BattleConfig } from "./story";
@@ -125,52 +126,7 @@ export class BattleScene extends Phaser.Scene {
 
   // ----------------------------------------------------------- background
   private drawBackground() {
-    const g = this.add.graphics().setDepth(0);
-    // sky bands (top -> horizon at HZ), with dithered seams
-    const bands = [
-      { y: 0, h: 38, col: PAL.sky1 },
-      { y: 38, h: 34, col: PAL.sky2 },
-      { y: 72, h: HZ - 72, col: PAL.sky3 },
-    ];
-    bands.forEach((b) => { g.fillStyle(b.col, 1); g.fillRect(0, b.y, W, b.h); });
-    const dither = (y: number, col: number) => {
-      g.fillStyle(col, 1);
-      for (let x = 0; x < W; x += 2) { g.fillRect(x, y, 1, 1); g.fillRect(x + 1, y + 2, 1, 1); }
-    };
-    dither(37, PAL.sky2); dither(71, PAL.sky3);
-    // moon
-    g.fillStyle(PAL.sun, 1); g.fillCircle(86, 46, 22);
-    g.fillStyle(PAL.sunHi, 1); g.fillCircle(81, 41, 15);
-    g.fillStyle(PAL.sky2, 0.5); g.fillCircle(93, 51, 18);
-    // far mountains rooted at the horizon
-    g.fillStyle(PAL.mtn, 1);
-    g.fillTriangle(-20, HZ, 80, 44, 190, HZ);
-    g.fillTriangle(120, HZ, 250, 56, 380, HZ);
-    g.fillTriangle(290, HZ, 400, 50, 470, HZ);
-    g.fillStyle(PAL.mtnLt, 1);
-    g.fillTriangle(80, 44, 80, 58, 52, 84);
-    g.fillTriangle(250, 56, 250, 70, 226, 96);
-    // ground plane
-    g.fillStyle(PAL.grassDk, 1); g.fillRect(0, HZ, W, H - HZ);
-    g.fillStyle(PAL.grass, 1); g.fillRect(0, HZ, W, 14);          // lit far grass
-    g.fillStyle(PAL.grassHi, 1); g.fillRect(0, HZ, W, 1);         // horizon rim light
-    // grass texture specks (denser toward foreground)
-    for (let y = HZ + 4; y < H; y += 6) {
-      g.fillStyle(y > 150 ? PAL.grassDk : PAL.grassHi, 0.7);
-      for (let x = (y % 12); x < W; x += 11) g.fillRect(x, y, 2, 1);
-    }
-    // pines sit on the horizon line
-    const pine = (x: number, s: number) => {
-      g.fillStyle(0x14200e, 1);
-      g.fillTriangle(x - 7 * s, HZ + 2, x, HZ - 20 * s, x + 7 * s, HZ + 2);
-      g.fillTriangle(x - 6 * s, HZ - 8 * s, x, HZ - 28 * s, x + 6 * s, HZ - 8 * s);
-      g.fillStyle(0x0d1508, 1); g.fillRect(x - 1, HZ + 1, 2, 4);
-    };
-    pine(26, 1); pine(360, 1.15); pine(175, 0.8); pine(230, 0.65);
-    // small ground rocks/bushes for grounding context
-    g.fillStyle(0x1f2d18, 1);
-    g.fillEllipse(150, 168, 26, 8); g.fillEllipse(210, 150, 18, 6);
-    g.fillStyle(PAL.grassDk, 1); g.fillEllipse(150, 166, 22, 6);
+    drawBattleBackdrop(this.add.graphics().setDepth(0), { W, H, HZ });
   }
 
   // ----------------------------------------------------------- actors

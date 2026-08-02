@@ -2,6 +2,12 @@
 
 Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reason.
 
+## Milestone 3 — backgrounds
+
+- **Ground texture is placed on a jittered 3×2 lattice, one tuft per cell, not per pixel.** Rolling every pixel independently at a density high enough to be visible produced isolated orphan pixels — static, not grass (style guide §8.6). Trading a visible repeat for noise is not a fix.
+- **The ground gets only a 0.12 aerial lift where the mountains get up to 0.72.** Lifting the ground toward the sky as hard as the far ranges is "correct" aerial perspective and destroys figure/ground: measured, it put the field within 3.5 luma of the sprites standing on it, worse than the flat baseline's 10. Now 6.5, with the actors the lightest thing below the horizon apart from the UI. The §8 value-structure criterion outranks physical correctness here.
+- **Four depth ranges, separated by value alone.** Detail does not read at this size; value does. The farthest range sits at 72% blended toward the sky and is deliberately almost invisible.
+
 ## Milestone 2 — shade derivation layer and Maren
 
 - **Maren's sprite uses 32 colours, not the 15 in §1.** Ten materials at the three-shade minimum cannot fit 15. The budget is a SNES hardware convention with no equivalent constraint in a canvas renderer, whereas the three-shade rule is what stops a sprite reading as flat — so the budget gave way. The set is still *bounded and declared*: `marenPalette()` enumerates it and every pixel is snapped to its nearest entry at bake time, which is what actually buys cohesion. Unbounded, he measured 57.

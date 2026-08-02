@@ -27,5 +27,34 @@
     "updated_at": "2026-08-01T23:51:43.136830+00:00",
     "verified_at": "2026-08-01T23:51:43.136830+00:00",
     "verified_sha": "bcc9f79078b8475643020136531dc132d2eb9f9e"
+  },
+  {
+    "id": "con-002-57a4",
+    "rule": "Skin shadows must use SHADOW_SKIN (rosy, hue 0.98); everything else uses SHADOW_COOL (blue-violet, 0.65). Hue interpolation always takes the short way around the circle. Never add a colour literal outside src/art/palette.ts, and give every migrated sprite a declared palette so bake() can snap to it.",
+    "reason": "Pushing skin's 27-degree hue toward blue-violet travels through yellow-green, so the shaded half of a face comes out olive - the single most damaging artefact on a character sprite. The style guide asks for red-brown on skin specifically for this reason. Separately, derived shades, cast shadows and the outline blend each mint a new colour per application: Maren measured 57 distinct colours on one 32x32 sprite before snapping, which is what makes a cast stop reading as one piece of art.",
+    "triggering_incident": "Milestone 2: Maren's face rendered olive on the shaded side twice - first from the linear hue lerp, then again from nearest-colour snapping sending a deep cool-brown cast shadow onto a dark green palette entry.",
+    "enforced_by": "node tools/focus.mjs <key> then compare lit vs shaded skin hue: shaded must move toward red (lower hue), never toward green",
+    "scope": "src/art",
+    "hardness": "absolute",
+    "related_to": [],
+    "tags": [
+      "sprites",
+      "shading",
+      "palette",
+      "colour"
+    ],
+    "retrieval_hints": [
+      "why is the face olive",
+      "skin shadow colour wrong",
+      "sprite has too many colours",
+      "palette snapping vanguard"
+    ],
+    "origin": "agent",
+    "schema_version": 4,
+    "status": "active",
+    "created_at": "2026-08-02T00:38:05.701294+00:00",
+    "updated_at": "2026-08-02T00:38:05.701294+00:00",
+    "verified_at": "2026-08-02T00:38:05.701294+00:00",
+    "verified_sha": "8ecdb4c56094569430527f11bae8ec7827aac77c"
   }
 ]
