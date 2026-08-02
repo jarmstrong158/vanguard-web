@@ -2,6 +2,12 @@
 
 Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reason.
 
+## Milestone 4b — the rest of the cast
+
+- **Senna's vest was lightened from `0x3a2d26` to `0x5c4838`.** Measured against the milestone 3 ground she sat at dv +1.2 — the same value as the field she stands on — so she read as a hole rather than a character. This predates the migration; the harness only made it visible. Same failure as the Shadow Creeper, found the same way.
+- **Every humanoid moved to the narrowed head and neck (`headW: 10`).** The silhouette fix proven on Maren applies to the whole cast; leaving the default would have made him the only character whose outline reads.
+- **`townsfolk()` takes its eye colour as a parameter** rather than hard-coding one, so the three NPC variants can be declared entries like everyone else.
+
 ## Milestone 4a — enemy sprites
 
 - **Enemy palettes are declared in `BEASTS` and built by a generic `paletteFor()`,** rather than one hand-written palette function per character. Maren's bespoke `marenPalette()` was worth writing once to find out what the helper needed; repeating it nineteen times would not be.

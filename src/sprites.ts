@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BEASTS, MAREN, marenPalette, paletteFor, PAL } from "./art/palette";
+import { BEASTS, HEROES, MAREN, marenPalette, paletteFor, PAL } from "./art/palette";
 import { blend, highlight, ramp, shadeIndex, shadow, SHADOW_SKIN } from "./art/shading";
 
 // Re-exported: PAL's home is art/palette.ts now, but scenes import it from here.
@@ -201,43 +201,50 @@ function drawMaren(p: PC) {
 }
 
 function drawKael(p: PC) {
-  const skin = 0xe6b386, hair = 0xd9b25e, steel = 0x8b9bb4, leather = 0x4a3f36, scar = 0xcf7a68;
+  const C = HEROES.kael; const steelR = ramp(C.steel), hairR = ramp(C.hair);
+  const skin = C.skin, hair = C.hair, steel = C.steel, leather = C.leather, scar = C.scar;
   // longsword (left), blade up
   p.block(7, 5, 2, 19, steel);
-  p.rect(5, 23, 6, 2, 0xd9a23a); p.rect(5, 23, 6, 1, highlight(0xd9a23a)); // crossguard
+  p.rect(5, 23, 6, 2, C.gold); p.rect(5, 23, 6, 1, highlight(C.gold)); // crossguard
   p.block(7, 25, 2, 3, leather); // grip
-  chibi(p, skin, steel, steel);
-  p.rect(15, 17, 2, 9, shadow(steel, 0.3)); // chest seam
+  chibi(p, skin, steel, steel, p.form, 10);
+  p.rect(15, 17, 2, 9, steelR.dark); // chest seam
   p.rect(10, 23, 12, 2, leather);            // belt
   // pauldrons
-  p.block(8, 17, 5, 3, steel); p.block(19, 17, 5, 3, steel);
-  // sandy blond cropped hair
-  p.block(10, 4, 12, 4, hair); p.block(10, 7, 2, 2, hair); p.block(20, 7, 2, 2, hair);
+  p.form(8, 17, 5, 3, steel); p.form(19, 17, 5, 3, steel);
+  // sandy blond cropped hair over the narrowed head (x11..20)
+  p.form(11, 4, 10, 4, hair); p.form(11, 7, 2, 3, hair); p.form(19, 7, 2, 3, hair);
+  p.rect(11, 4, 10, 1, hairR.hi);
+  p.darken(13, 8, 6, 1, 0.5);   // hair casts onto the forehead
+  p.darken(12, 15, 8, 1, 0.4);  // chin casts onto the chest
   // scar down the cheek (his left = viewer right)
   p.px(19, 8, scar); p.px(19, 9, scar); p.px(18, 10, scar); p.px(18, 11, scar);
   // pale blue eyes
-  p.rect(13, 11, 2, 2,0x355a7a); p.rect(17, 11, 2, 2,0x355a7a);
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye);
 }
 
 function drawLida(p: PC) {
-  const skin = 0x7d4e30, hair = 0x231a24, robe = 0x6f8a52, apron = 0xddcda6, belt = 0x6b4a32, flower = 0xf2757a, rod = 0xb0895a, leaf = 0x5db04a;
+  const C = HEROES.lida; const robeR = ramp(C.robe), hairR = ramp(C.hair), apronR = ramp(C.apron);
+  const skin = C.skin, hair = C.hair, robe = C.robe, apron = C.apron, belt = C.belt, flower = C.flower, rod = C.rod, leaf = C.leaf;
   // healer's rod (right), with a green herb-orb
   p.block(24, 7, 2, 21, rod);
   p.block(22, 5, 4, 3, leaf); p.px(23, 4, highlight(leaf));
-  chibi(p, skin, robe, robe);
+  chibi(p, skin, robe, robe, p.form, 10);
   // robe flares at the hem
-  p.block(9, 26, 14, 4, robe); p.rect(9, 29, 14, 1, shadow(robe, 0.5));
+  p.form(9, 26, 14, 4, robe); p.rect(9, 29, 14, 1, robeR.dark);
   // cream apron with a pocket seam
-  p.block(13, 18, 6, 8, apron); p.rect(13, 22, 6, 1, shadow(apron, 0.35));
+  p.form(13, 18, 6, 8, apron); p.rect(13, 22, 6, 1, apronR.dark);
   p.rect(11, 17, 11, 1, belt);
   // thick black hair + side braid over shoulder
-  p.block(10, 4, 12, 4, hair); p.block(10, 7, 2, 4, hair); p.block(20, 7, 2, 4, hair);
-  p.block(21, 11, 2, 7, hair); p.px(21, 14, shadow(hair, 0.3)); p.rect(21, 18, 2, 1, belt); // braid + tie
+  p.form(11, 4, 10, 4, hair); p.form(11, 7, 2, 4, hair); p.form(19, 7, 2, 4, hair);
+  p.rect(11, 4, 10, 1, hairR.hi);
+  p.block(21, 11, 2, 7, hairR.sh); p.px(21, 14, hairR.dark); p.rect(21, 18, 2, 1, belt); // braid + tie
+  p.darken(13, 8, 6, 1, 0.5); p.darken(12, 15, 8, 1, 0.4);
   // tucked flower
-  p.px(11, 5, flower); p.px(11, 4, highlight(flower)); p.px(12, 5, PAL.gold);
+  p.px(12, 5, flower); p.px(12, 4, highlight(flower)); p.px(13, 5, PAL.gold);
   // warm brown eyes + small smile
-  p.rect(13, 11, 2, 2,0x3a2418); p.rect(17, 11, 2, 2,0x3a2418);
-  p.px(15, 14, shadow(skin, 0.4));
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye);
+  p.px(15, 13, shadow(skin, 0.4, SHADOW_SKIN));
 }
 
 function drawWolf(p: PC) {
@@ -255,18 +262,21 @@ function drawWolf(p: PC) {
 }
 
 function drawSenna(p: PC) {
-  const skin = 0x6a4330, hair = 0x1a141c, vest = 0x3a2d26, scarf = 0xd64b4b, pants = 0x9a8868, staff = 0xb0895a, flame = 0xf77622;
+  const C = HEROES.senna; const hairR = ramp(C.hair), scarfR = ramp(C.scarf);
+  const skin = C.skin, hair = C.hair, vest = C.vest, scarf = C.scarf, pants = C.pants, staff = C.staff, flame = C.flame;
   // staff with flame (right)
   p.block(24, 7, 2, 21, staff);
   p.block(22, 4, 4, 4, flame); p.px(23, 3, highlight(flame)); p.px(24, 4, PAL.gold);
-  chibi(p, skin, vest, pants);
+  chibi(p, skin, vest, pants, p.form, 10);
   // red scarf at neck/chest
-  p.rect(10, 17, 12, 3, scarf); p.rect(10, 17, 12, 1, highlight(scarf));
-  p.px(11, 20, scarf); // loose end
+  p.rect(10, 17, 12, 3, scarf); p.rect(10, 17, 12, 1, scarfR.hi); p.rect(10, 19, 12, 1, scarfR.dark);
+  p.px(11, 20, scarfR.sh); // loose end
   // short coiled black hair (close cut)
-  p.block(10, 4, 12, 4, hair); p.block(10, 7, 2, 2, hair); p.block(20, 7, 2, 2, hair);
+  p.form(11, 4, 10, 4, hair); p.form(11, 7, 2, 3, hair); p.form(19, 7, 2, 3, hair);
+  p.rect(11, 4, 10, 1, hairR.hi);
+  p.darken(13, 8, 6, 1, 0.5); p.darken(12, 15, 8, 1, 0.4);
   // fierce eyes (catch firelight)
-  p.rect(13, 11, 2, 2, 0x201018); p.rect(17, 11, 2, 2, 0x201018); p.px(13, 11, flame); p.px(17, 11, flame);
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye); p.px(13, 11, flame); p.px(17, 11, flame);
 }
 
 function drawSlime(p: PC) {
@@ -281,20 +291,25 @@ function drawSlime(p: PC) {
 }
 
 function drawMilitia(p: PC) {
-  const skin = 0xd9a878, hair = 0x4a3326, tunic = 0x9a8a52, leather = 0x6b4a32, steel = 0xb7bcc8, shaft = 0x8a6a44;
+  const C = BEASTS.militia; const hairR = ramp(C.hair);
+  const skin = C.skin, hair = C.hair, tunic = C.tunic, leather = C.leather, steel = C.steel, shaft = C.shaft;
   // spear (right)
   p.block(24, 4, 2, 24, shaft);
   p.rect(23, 4, 4, 4, steel); p.px(24, 2, highlight(steel)); // tip
-  chibi(p, skin, tunic, leather);
+  chibi(p, skin, tunic, leather, p.form, 10);
   p.rect(10, 23, 12, 2, leather); // belt
-  // leather cap on the big head
-  p.block(10, 4, 12, 4, leather); p.block(10, 7, 2, 2, hair); p.block(20, 7, 2, 2, hair);
-  p.rect(13, 11, 2, 2,0x2a2030); p.rect(17, 11, 2, 2,0x2a2030);
+  // leather cap on the narrowed head
+  p.form(11, 4, 10, 4, leather); p.form(11, 7, 2, 2, hair); p.form(19, 7, 2, 2, hair);
+  p.rect(11, 4, 10, 1, ramp(leather).hi);
+  p.darken(13, 8, 6, 1, 0.5); p.darken(12, 15, 8, 1, 0.4);
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye);
+  void hairR;
 }
 
 function drawRhogar(p: PC) {
   // big armored captain, 40x40, fire/red theme, facing right
-  const steel = 0x6a5560, red = 0xb02a33, dark = 0x3a2d31, gold = 0xe0a93a, skin = 0xc89a78, flame = 0xf77622;
+  const C = BEASTS.rhogar; const steelR = ramp(C.steel);
+  const steel = C.steel, red = C.red, dark = C.dark, gold = C.gold, skin = C.skin, flame = C.flame;
   // big sword (left)
   p.block(5, 4, 3, 26, steel);
   p.rect(3, 28, 7, 2, gold);
@@ -303,20 +318,21 @@ function drawRhogar(p: PC) {
   p.block(15, 30, 5, 8, steel); p.block(22, 30, 5, 8, steel);
   p.rect(15, 36, 5, 2, dark); p.rect(22, 36, 5, 2, dark);
   // broad torso plate
-  p.block(11, 15, 20, 17, steel);
-  p.block(13, 17, 16, 9, red);          // red tabard
+  p.form(11, 15, 20, 17, steel);
+  p.form(13, 17, 16, 9, red);           // red tabard
   p.rect(20, 17, 2, 14, dark);          // center seam
   p.rect(11, 28, 20, 2, dark);          // belt
   // huge pauldrons
-  p.block(8, 13, 7, 6, steel); p.block(27, 13, 7, 6, steel);
+  p.form(8, 13, 7, 6, steel); p.form(27, 13, 7, 6, steel);
   p.px(10, 14, gold); p.px(31, 14, gold);
   // arms
   p.block(8, 19, 3, 11, steel); p.block(31, 19, 3, 11, steel);
   p.rect(8, 30, 3, 2, skin); p.rect(31, 30, 3, 2, skin);
   // head + horned helm
-  p.block(15, 5, 12, 11, steel);
-  p.block(16, 8, 10, 6, skin);          // face opening
-  p.rect(16, 8, 10, 1, shadow(skin, 0.4));
+  p.form(15, 5, 12, 11, steel);
+  p.form(16, 8, 10, 6, skin);           // face opening
+  p.rect(16, 8, 10, 1, shadow(skin, 0.4, SHADOW_SKIN));
+  void steelR;
   p.px(18, 11, flame); p.px(23, 11, flame); // burning eyes
   // horns
   p.block(13, 3, 3, 4, dark); p.px(12, 2, dark);
@@ -325,38 +341,42 @@ function drawRhogar(p: PC) {
 }
 
 function drawAshguard(p: PC) {
-  const skin = 0xc89a78, hair = 0x3a2d26, armor = 0x7a2f33, dark = 0x4a1f24, steel = 0x9aa0ae, shaft = 0x8a6a44;
+  const C = BEASTS.ashguard;
+  const skin = C.skin, hair = C.hair, armor = C.armor, dark = C.dark, steel = C.steel, shaft = C.shaft;
   // spear
   p.block(24, 4, 2, 24, shaft);
   p.rect(23, 4, 4, 4, steel); p.px(24, 2, highlight(steel));
-  chibi(p, skin, armor, dark);
+  chibi(p, skin, armor, dark, p.form, 10);
   p.rect(10, 23, 12, 2, dark);       // belt
   p.rect(15, 17, 2, 8, dark);        // armor seam
   // pauldrons
-  p.block(8, 17, 4, 3, steel); p.block(20, 17, 4, 3, steel);
-  // steel helm over the big head, cheek guards leave a visor of face
-  p.block(10, 4, 12, 5, steel);
+  p.form(8, 17, 4, 3, steel); p.form(20, 17, 4, 3, steel);
+  // steel helm, cheek guards leave a visor of face
+  p.form(11, 4, 10, 5, steel);
+  p.darken(12, 15, 8, 1, 0.4);
   p.rect(19, 3, 2, 3, armor);                          // crest
-  p.block(10, 9, 2, 4, steel); p.block(20, 9, 2, 4, steel); // cheek guards
+  p.block(11, 9, 2, 4, steel); p.block(19, 9, 2, 4, steel); // cheek guards
   p.rect(12, 9, 8, 1, hair);                           // brow shadow
   // hostile red eyes
-  p.rect(13, 11, 2, 2,0xc0392b); p.rect(17, 11, 2, 2,0xc0392b);
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye);
 }
 
 function drawDavan(p: PC) {
-  const skin = 0xb89a82, hood = 0x2a2733, cloak = 0x342f3e, dark = 0x1c1924, blade = 0xc0cbdc;
+  const C = HEROES.davan; const hoodR = ramp(C.hood);
+  const skin = C.skin, hood = C.hood, cloak = C.cloak, dark = C.dark, blade = C.blade;
   // dagger (right hand)
   p.block(23, 19, 2, 7, blade); p.px(23, 18, highlight(blade));
-  chibi(p, skin, cloak, dark);
+  chibi(p, skin, cloak, dark, p.form, 10);
   // shadow-eating cloak edges + belt
   p.rect(10, 17, 1, 9, hood); p.rect(21, 17, 1, 9, hood);
   p.rect(10, 23, 12, 1, dark);
   // deep hood over the big head, shadowing the face
-  p.block(10, 4, 12, 6, hood);
-  p.block(10, 10, 2, 4, hood); p.block(20, 10, 2, 4, hood); // hood sides
-  p.rect(12, 8, 8, 2, shadow(skin, 0.5));                // shadowed brow line
+  p.form(11, 4, 10, 6, hood);
+  p.block(11, 10, 2, 4, hoodR.sh); p.block(19, 10, 2, 4, hoodR.sh); // hood sides
+  p.rect(11, 4, 10, 1, hoodR.hi);
+  p.darken(12, 10, 8, 2, 0.55);                          // deep hood shadow over the brow
   // sharp eyes glinting in the dark
-  p.rect(13, 11, 2, 2,0x3a4a4a); p.rect(17, 11, 2, 2,0x3a4a4a);
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye);
 }
 
 function drawShade(p: PC) {
@@ -403,54 +423,59 @@ function drawStalker(p: PC) {
 }
 
 function drawYara(p: PC) {
-  const skin = 0x7a5240, stone = 0x8a8a96, hair = 0x1a141c, gi = 0x4a4a52, sash = 0x9a6a3a, iron = 0xb0b6c0;
-  chibi(p, skin, gi, gi);
+  const C = HEROES.yara; const hairR = ramp(C.hair), giR = ramp(C.gi);
+  const skin = C.skin, stone = C.stone, hair = C.hair, gi = C.gi, sash = C.sash, iron = C.iron;
+  chibi(p, skin, gi, gi, p.form, 10);
   p.rect(9, 22, 14, 2, sash);            // belt sash
-  p.rect(10, 17, 12, 1, highlight(gi));  // lapel highlight
+  p.rect(10, 17, 12, 1, giR.hi);         // lapel highlight
   // stone-textured forearms / fists (a monk's weapons)
-  p.block(7, 20, 3, 5, stone); p.block(22, 20, 3, 5, stone);
+  p.form(7, 20, 3, 5, stone); p.form(22, 20, 3, 5, stone);
   p.rect(7, 24, 3, 2, stone); p.rect(22, 24, 3, 2, stone);
   // iron pendant
   p.px(15, 18, iron); p.px(16, 18, iron);
   // black hair + thick braid over shoulder, iron-wire bands
-  p.block(10, 4, 12, 4, hair); p.block(10, 7, 2, 4, hair); p.block(20, 7, 2, 4, hair);
-  p.block(21, 11, 2, 8, hair); p.px(21, 14, iron); p.px(21, 17, iron); // braid + wire
+  p.form(11, 4, 10, 4, hair); p.form(11, 7, 2, 4, hair); p.form(19, 7, 2, 4, hair);
+  p.rect(11, 4, 10, 1, hairR.hi);
+  p.block(21, 11, 2, 8, hairR.sh); p.px(21, 14, iron); p.px(21, 17, iron); // braid + wire
+  p.darken(13, 8, 6, 1, 0.5); p.darken(12, 15, 8, 1, 0.4);
   // amber eyes
-  p.rect(13, 11, 2, 2, 0x2a1f18); p.rect(17, 11, 2, 2, 0x2a1f18);
-  p.px(13, 11, 0xc8902a); p.px(17, 11, 0xc8902a);
+  p.rect(13, 11, 2, 2, C.eye); p.rect(17, 11, 2, 2, C.eye);
+  p.px(13, 11, C.amber); p.px(17, 11, C.amber);
 }
 
 function drawMirror(p: PC) {
   // dark Conduit echo — a hollow silhouette of Maren with glowing cracks, 32x36
-  const dark = 0x1a1830, darkHi = 0x2e2a4a, crack = 0x6ad8ff;
-  p.block(12, 26, 4, 8, dark); p.block(17, 26, 4, 8, dark); // legs
-  p.block(8, 16, 16, 12, dark);                            // body
-  p.rect(8, 16, 16, 1, darkHi);
-  p.block(6, 17, 2, 9, dark); p.block(24, 17, 2, 9, dark); // arms
-  p.block(11, 5, 10, 11, dark);                            // head (hooded, featureless)
+  const C = HEROES.mirror; const mass = ramp(C.mass); const dark = C.mass, crack = C.crack;
+  p.form(12, 26, 4, 8, dark); p.form(17, 26, 4, 8, dark); // legs
+  p.form(8, 16, 16, 12, dark);                            // body
+  p.rect(8, 16, 16, 1, mass.hi);
+  p.block(6, 17, 2, 9, mass.sh); p.block(24, 17, 2, 9, mass.sh); // arms
+  p.form(11, 5, 10, 11, dark);                            // head (hooded, featureless)
   // glowing fracture lines
   p.px(15, 8, crack); p.px(16, 10, crack); p.px(15, 12, crack); p.px(14, 14, crack);
   p.px(12, 20, crack); p.px(19, 22, crack); p.px(16, 25, crack); p.px(10, 24, crack);
   // hollow glowing eyes
   p.px(13, 9, crack); p.px(18, 9, crack);
   // wisps
-  p.px(9, 3, dark); p.px(22, 3, dark); p.px(7, 14, dark); p.px(25, 16, dark);
+  p.px(9, 3, mass.sh); p.px(22, 3, mass.sh); p.px(7, 14, mass.dark); p.px(25, 16, mass.dark);
 }
 
-function townsfolk(p: PC, skin: number, hair: number, tunic: number, robe = false) {
+function townsfolk(p: PC, skin: number, hair: number, tunic: number, robe = false, eye = 0x2a2030) {
+  const tunicR = ramp(tunic), hairR = ramp(hair);
   if (robe) {
     // floor-length robe (elder) — body to the ground
-    p.block(10, 15, 12, 13, tunic); p.block(9, 26, 14, 3, shadow(tunic, 0.4)); p.rect(9, 28, 14, 1, shadow(tunic, 0.6));
-    p.block(8, 18, 2, 7, tunic); p.block(22, 18, 2, 7, tunic);
+    p.form(10, 15, 12, 13, tunic); p.form(9, 26, 14, 3, tunic); p.rect(9, 28, 14, 1, tunicR.dark);
+    p.block(8, 18, 2, 7, tunicR.sh); p.block(22, 18, 2, 7, tunicR.sh);
     p.rect(8, 24, 2, 2, skin); p.rect(22, 24, 2, 2, skin);
-    p.block(10, 6, 12, 9, skin);
+    p.form(11, 6, 10, 8, skin, SHADOW_SKIN);
+    p.rect(14, 14, 4, 1, shadow(skin, 0.3, SHADOW_SKIN));
   } else {
-    chibi(p, skin, tunic, shadow(tunic, 0.45));
+    chibi(p, skin, tunic, tunicR.sh, p.form, 10);
   }
-  // hair
-  p.block(10, 4, 12, 4, hair); p.block(10, 7, 2, 2, hair); p.block(20, 7, 2, 2, hair);
-  // eyes
-  p.rect(13, 11, 2, 2,0x2a2030); p.rect(17, 11, 2, 2,0x2a2030);
+  p.form(11, 4, 10, 4, hair); p.form(11, 7, 2, 2, hair); p.form(19, 7, 2, 2, hair);
+  p.rect(11, 4, 10, 1, hairR.hi);
+  p.darken(13, 8, 6, 1, 0.5); p.darken(12, 15, 8, 1, 0.4);
+  p.rect(13, 11, 2, 2, eye); p.rect(17, 11, 2, 2, eye);
 }
 
 function drawRat(p: PC) {
@@ -478,25 +503,25 @@ function drawSpider(p: PC) {
 
 export function bakeAll(scene: Phaser.Scene) {
   bake(scene, "maren", 32, 32, drawMaren, marenPalette());
-  bake(scene, "yara", 32, 32, drawYara);
-  bake(scene, "villager", 32, 32, (p) => townsfolk(p, 0xe0a878, 0x4a3326, 0x9a7a52));
-  bake(scene, "villager2", 32, 32, (p) => townsfolk(p, 0xc89a78, 0x2a2030, 0x5a7a5a));
-  bake(scene, "elder", 32, 32, (p) => townsfolk(p, 0xd8b89a, 0xc0c0c8, 0x7a6a8a, true));
-  bake(scene, "mirror", 32, 36, drawMirror);
-  bake(scene, "davan", 32, 32, drawDavan);
+  bake(scene, "yara", 32, 32, drawYara, paletteFor(HEROES.yara, { castOn: ["skin"] }));
+  bake(scene, "villager", 32, 32, (p) => townsfolk(p, HEROES.villager.skin, HEROES.villager.hair, HEROES.villager.tunic, false, HEROES.villager.eye), paletteFor(HEROES.villager, { castOn: ["skin"] }));
+  bake(scene, "villager2", 32, 32, (p) => townsfolk(p, HEROES.villager2.skin, HEROES.villager2.hair, HEROES.villager2.tunic, false, HEROES.villager2.eye), paletteFor(HEROES.villager2, { castOn: ["skin"] }));
+  bake(scene, "elder", 32, 32, (p) => townsfolk(p, HEROES.elder.skin, HEROES.elder.hair, HEROES.elder.tunic, true, HEROES.elder.eye), paletteFor(HEROES.elder, { castOn: ["skin"] }));
+  bake(scene, "mirror", 32, 36, drawMirror, paletteFor(HEROES.mirror, { skinKeys: [] }));
+  bake(scene, "davan", 32, 32, drawDavan, paletteFor(HEROES.davan, { castOn: ["skin"], extras: [highlight(HEROES.davan.blade)] }));
   bake(scene, "shade", 36, 22, drawShade, paletteFor(BEASTS.shade, { skinKeys: [], extras: [highlight(BEASTS.shade.eye)] }));
   bake(scene, "moth", 34, 24, drawMoth, paletteFor(BEASTS.moth, { skinKeys: [] }));
   bake(scene, "stalker", 44, 36, drawStalker, paletteFor(BEASTS.stalker, { skinKeys: [] }));
-  bake(scene, "ashguard", 32, 32, drawAshguard);
-  bake(scene, "kael", 32, 32, drawKael);
-  bake(scene, "lida", 32, 32, drawLida);
-  bake(scene, "senna", 32, 32, drawSenna);
+  bake(scene, "ashguard", 32, 32, drawAshguard, paletteFor(BEASTS.ashguard, { castOn: ["skin"], extras: [highlight(BEASTS.ashguard.steel)] }));
+  bake(scene, "kael", 32, 32, drawKael, paletteFor(HEROES.kael, { castOn: ["skin"], extras: [highlight(HEROES.kael.gold)] }));
+  bake(scene, "lida", 32, 32, drawLida, paletteFor(HEROES.lida, { castOn: ["skin"], extras: [highlight(HEROES.lida.flower), highlight(HEROES.lida.leaf), PAL.gold] }));
+  bake(scene, "senna", 32, 32, drawSenna, paletteFor(HEROES.senna, { castOn: ["skin"], extras: [highlight(HEROES.senna.flame), PAL.gold] }));
   bake(scene, "wolf", 36, 22, drawWolf, paletteFor(BEASTS.wolf, { skinKeys: [], extras: [highlight(BEASTS.wolf.eye)] }));
   bake(scene, "slime", 28, 20, drawSlime, paletteFor(BEASTS.slime, { skinKeys: [] }));
   bake(scene, "rat", 28, 16, drawRat, paletteFor(BEASTS.rat, { skinKeys: [] }));
   bake(scene, "spider", 28, 20, drawSpider, paletteFor(BEASTS.spider, { skinKeys: [] }));
-  bake(scene, "militia", 32, 32, drawMilitia);
-  bake(scene, "rhogar", 40, 40, drawRhogar);
+  bake(scene, "militia", 32, 32, drawMilitia, paletteFor(BEASTS.militia, { castOn: ["skin"], extras: [highlight(BEASTS.militia.steel)] }));
+  bake(scene, "rhogar", 40, 40, drawRhogar, paletteFor(BEASTS.rhogar, { castOn: ["skin"] }));
   if (!scene.textures.exists("pdot")) {
     const t = scene.textures.createCanvas("pdot", 3, 3)!;
     const cx = t.getContext()!; cx.fillStyle = "#ffffff"; cx.fillRect(1, 0, 1, 3); cx.fillRect(0, 1, 3, 1); t.refresh();
