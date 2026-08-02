@@ -1,22 +1,16 @@
 import Phaser from "phaser";
 import { BEASTS, HEROES, MAREN, marenPalette, paletteFor, PAL } from "./art/palette";
 import { blend, highlight, ramp, shadeIndex, shadow, SHADOW_SKIN } from "./art/shading";
+import { panel } from "./art/ui";
 
 // Re-exported: PAL's home is art/palette.ts now, but scenes import it from here.
 export { PAL };
 
 const hex = (c: number) => "#" + (c >>> 0).toString(16).padStart(6, "0").slice(-6);
 
-// Classic Final Fantasy (SNES) menu window: white border, dark inset, royal->navy
-// blue gradient interior, top highlight. Draw into any Graphics object.
+// Kept for the five scenes that already call it; the look now lives in art/ui.ts.
 export function ffWindow(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number) {
-  const r = 5;
-  g.fillStyle(0x000000, 0.35); g.fillRoundedRect(x + 2, y + 3, w, h, r);       // drop shadow
-  g.fillStyle(0xeaf0ff, 1); g.fillRoundedRect(x, y, w, h, r);                   // white outer border
-  g.fillStyle(0x0a1430, 1); g.fillRoundedRect(x + 1, y + 1, w - 2, h - 2, r);   // dark inset line
-  g.fillGradientStyle(0x2a52b8, 0x2a52b8, 0x0e1c52, 0x0e1c52, 1);               // blue gradient body
-  g.fillRoundedRect(x + 2, y + 2, w - 4, h - 4, Math.max(1, r - 1));
-  g.fillStyle(0x5f86e6, 0.5); g.fillRect(x + 5, y + 3, w - 10, 1);              // top sheen
+  panel(g, x, y, w, h);
 }
 
 interface PC {

@@ -79,6 +79,25 @@ export function paletteFor(
   return [...new Set(out)];
 }
 
+/**
+ * UI chrome. A dark desaturated ground with a two-tone bevel, replacing the
+ * saturated royal blue that BRIEF §0 names as a defect ("reads as a debug
+ * overlay rather than a game window").
+ *
+ * The selection entries are a VALUE step, not a hue change: §8 requires the
+ * highlight to survive the greyscale check.
+ */
+export const UI = {
+  border: 0x0c0e18,
+  bevelHi: 0x5a6a9a,
+  bevelSh: 0x141a30,
+  ground: 0x232a48,
+  selShade: 0x1a2038,
+  selFill: 0x4f5f96,
+  selHi: 0x8c9ad0,
+  trough: 0x11131f,
+};
+
 /** Party, NPCs and humanoid antagonists. One entry per material; every shade
  *  is derived. Skin keys get the rosy shadow target via paletteFor(). */
 export const HEROES = {

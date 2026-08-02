@@ -3,6 +3,9 @@ import { ABIL, CONDUIT_PULSES, ENEMY_DEFS, ITEMS, STATUS, type AbilityDef, type 
 import { Battle, Combatant } from "./combat";
 import { drawBattleBackdrop } from "./art/backdrop";
 import { PAL, SPRITE_KEY, bakeAll, ffWindow } from "./sprites";
+import { bar as uiBar, selection, shadowed } from "./art/ui";
+import { UI } from "./art/palette";
+import { highlight } from "./art/shading";
 import { RUN, applyLevels, clearSave, defForParty, getRun, restParty, saveRun } from "./run";
 import { addBountyKills, addMarks, awardXp, getBnd, getCurHp, getCurMp, getEquip, getLevel, getStory, giveEquip, saveStory, setCurHpMp, XP_MULT, type BattleConfig } from "./story";
 import { playBgm, sfx } from "./audio";
@@ -196,7 +199,8 @@ export class BattleScene extends Phaser.Scene {
       const yy = 4 + (i === 0 ? 0 : 1);
       const g = this.add.graphics();
       g.fillStyle(PAL.out, 1); g.fillRect(x - 1, yy - 1, size + 2, size + 2);
-      g.fillStyle(i === 0 ? PAL.gold : PAL.panelEdge, 1); g.fillRect(x, yy, size, size);
+      g.fillStyle(i === 0 ? PAL.gold : UI.bevelHi, 1); g.fillRect(x, yy, size, size);
+      g.fillStyle(UI.ground, 1); g.fillRect(x + 1, yy + 1, size - 2, size - 2);
       this.turnBar.add(g);
       const ic = this.add.image(x + size / 2, yy + size - 1, SPRITE_KEY[u.id])
         .setOrigin(0.5, 1).setCrop(0, 0, 24, 13);
@@ -217,7 +221,7 @@ export class BattleScene extends Phaser.Scene {
   // shared 2-column scrolling-ish list renderer for ability/item/pulse menus
   private renderList(title: string, rows: { label: string; sub: string; disabled: boolean; desc?: string }[], idx: number) {
     const mk = (x: number, y: number, text: string, color: number) =>
-      this.add.text(x, y, text, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(color) });
+      shadowed(this.add.text(x, y, text, { fontFamily: FONT, resolution: 4, fontSize: "8px", color: c(color) }));
     this.bottomPanel.add(mk(14, 170, title, PAL.steelHi));
     this.bottomPanel.add(mk(W - 70, 170, "X:back", PAL.steelHi));
     const short = rows.length <= 4; // 2 rows -> room for a description line
@@ -238,7 +242,7 @@ export class BattleScene extends Phaser.Scene {
     this.bottomPanel.removeAll(true);
     const a = this.active;
     const mk = (x: number, y: number, text: string, color: number, big = false) =>
-      this.add.text(x, y, text, { fontFamily: FONT, resolution: 4, fontSize: big ? "16px" : "8px", color: c(color) });
+      shadowed(this.add.text(x, y, text, { fontFamily: FONT, resolution: 4, fontSize: big ? "16px" : "8px", color: c(color) }));
 
     if (this.phase === "command" && a) {
       this.bottomPanel.add(mk(14, 172, a.name, PAL.clothHi));
@@ -250,8 +254,7 @@ export class BattleScene extends Phaser.Scene {
         const x = 116 + col * 92, y = 176 + row * 17;
         if (sel) {
           const g = this.add.graphics();
-          g.fillStyle(0x3a6bd6, 1); g.fillRect(x - 5, y - 2, 84, 13);
-          g.fillStyle(PAL.gold, 1); g.fillRect(x - 5, y - 2, 84, 1); g.fillRect(x - 5, y + 10, 84, 1);
+          selection(g, x - 5, y - 2, 84, 13);
           this.bottomPanel.add(g);
         }
         this.bottomPanel.add(mk(x, y, cmd, sel ? PAL.gold : PAL.clothHi));
@@ -344,15 +347,12 @@ export class BattleScene extends Phaser.Scene {
     const w = u.isParty ? 28 : 24;
     const x = Math.round(v.baseX - w / 2);
     const y = v.baseY - (u.isParty ? 38 : 28);
-    g.fillStyle(PAL.out, 1); g.fillRect(x - 1, y - 1, w + 2, u.isParty ? 7 : 4);
-    g.fillStyle(PAL.panel, 1); g.fillRect(x, y, w, 3);
     const ratio = Phaser.Math.Clamp(v.displayedHp / u.maxHp, 0, 1);
     let col = PAL.green; if (ratio < 0.25) col = PAL.red; else if (ratio < 0.5) col = PAL.gold;
-    if (ratio > 0) { g.fillStyle(col, 1); g.fillRect(x, y, Math.max(1, Math.round(w * ratio)), 3); }
+    uiBar(g, x, y, w, 3, ratio, col, highlight(col));
     if (u.isParty) {
-      g.fillStyle(PAL.panel, 1); g.fillRect(x, y + 4, w, 2);
       const mr = Phaser.Math.Clamp(v.displayedMp / Math.max(1, u.maxMp), 0, 1);
-      if (mr > 0) { g.fillStyle(PAL.cyan, 1); g.fillRect(x, y + 4, Math.max(1, Math.round(w * mr)), 2); }
+      uiBar(g, x, y + 5, w, 2, mr, PAL.cyan, highlight(PAL.cyan));
     }
     // status pips
     let px = x; const py = y - 5;

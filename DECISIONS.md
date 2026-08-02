@@ -2,6 +2,12 @@
 
 Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reason.
 
+## Milestone 5 — UI
+
+- **`ffWindow()` kept its name and signature but now delegates to `art/ui.ts`.** Five scenes call it; changing the look in one place beat touching five call sites, and the old name is accurate again only in spirit — it is no longer a Final Fantasy gradient window.
+- **The selection highlight is a value step plus a bevel, not a hue change.** §8 requires it to be identifiable in greyscale. Measured luma delta against an unselected cell went 35.5 → 47.0; the old saturated blue was legible but modest once desaturated.
+- **Text shadows are applied in BattleScene only so far.** The `shadowed()` helper exists and the battle menus use it; DialogueScene, ShopScene, PartyMenuScene, OverworldScene and CampScene still add unshadowed text. §8's "all text is legible over its actual background" is therefore **not yet fully met** — remaining work, not an accepted deviation.
+
 ## Milestone 4b — the rest of the cast
 
 - **Senna's vest was lightened from `0x3a2d26` to `0x5c4838`.** Measured against the milestone 3 ground she sat at dv +1.2 — the same value as the field she stands on — so she read as a hole rather than a character. This predates the migration; the harness only made it visible. Same failure as the Shadow Creeper, found the same way.
