@@ -69,6 +69,10 @@ export interface ShotSpec {
   seed: number;
   frames: number;
   id: ShotId;
+  /** ?perf=1 -- hand the clock back to requestAnimationFrame and sample real
+   *  frame deltas instead of capturing. The manual clock used for screenshots
+   *  measures nothing about performance. */
+  perf: boolean;
 }
 
 const DEFAULT_FRAMES = 90;
@@ -111,7 +115,10 @@ export function readShotSpec(): ShotSpec | null {
     const n = raw === null ? NaN : Number(raw);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
   };
-  return { id, seed: num("seed", DEFAULT_SEED), frames: num("frames", DEFAULT_FRAMES) };
+  return {
+    id, seed: num("seed", DEFAULT_SEED), frames: num("frames", DEFAULT_FRAMES),
+    perf: q.get("perf") === "1",
+  };
 }
 
 /** Install the seeded RNG. MUST run before the Phaser.Game is constructed,
@@ -301,6 +308,18 @@ export function applyShot(game: Phaser.Game, spec: ShotSpec) {
 
   void (async () => {
     await settle();
+    if (spec.perf) {
+      // Assets are loaded and the scene is built; give the clock back to rAF
+      // and record what the browser actually delivers.
+      const deltas: number[] = [];
+      game.events.on(Phaser.Core.Events.POST_STEP, () => {
+        if (deltas.length < spec.frames) deltas.push(game.loop.delta);
+      });
+      (window as unknown as { VG_PERF: () => number[] }).VG_PERF = () => deltas;
+      game.loop.wake();
+      (window as unknown as { VG_SHOT_READY: boolean }).VG_SHOT_READY = true;
+      return;
+    }
     if (spec.id === "party") {
       // Launched only once the overworld exists and has finished loading --
       // starting both at once lets the overworld's create() win the race.
