@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { MAREN, marenPalette, PAL } from "./art/palette";
+import { BEASTS, MAREN, marenPalette, paletteFor, PAL } from "./art/palette";
 import { blend, highlight, ramp, shadeIndex, shadow, SHADOW_SKIN } from "./art/shading";
 
 // Re-exported: PAL's home is art/palette.ts now, but scenes import it from here.
@@ -241,25 +241,17 @@ function drawLida(p: PC) {
 }
 
 function drawWolf(p: PC) {
-  const fur = 0x6b4a38, eye = 0xff0044; // facing right, 36x22
-  // legs
-  p.block(7, 15, 3, 6, shadow(fur, 0.35)); p.block(12, 15, 3, 6, shadow(fur, 0.35));
-  p.block(21, 15, 3, 6, shadow(fur, 0.35)); p.block(26, 15, 3, 6, shadow(fur, 0.35));
-  // tail
-  p.block(1, 6, 6, 3, fur); p.px(0, 5, fur);
-  // body
-  p.block(5, 7, 23, 9, fur);
-  p.rect(5, 14, 23, 2, shadow(fur, 0.4)); // belly shadow
-  // haunch
-  p.block(5, 8, 7, 8, fur);
-  // head (front-right)
-  p.block(25, 5, 9, 9, fur);
-  // snout
-  p.block(31, 9, 4, 3, shadow(fur, 0.3)); p.px(34, 10, 0x181425);
-  // ears
-  p.block(25, 2, 2, 3, fur); p.block(29, 2, 2, 3, fur);
-  // glowing eye
-  p.px(29, 8, eye); p.px(30, 8, highlight(eye));
+  const C = BEASTS.wolf; const fur = ramp(C.fur);
+  for (const lx of [7, 12, 21, 26]) p.block(lx, 15, 3, 6, fur.sh);
+  p.block(1, 6, 6, 3, fur.sh); p.px(0, 5, fur.dark);  // tail
+  p.form(5, 7, 23, 9, C.fur);                         // body
+  p.rect(5, 14, 23, 2, fur.dark);                     // belly
+  p.form(5, 8, 7, 8, C.fur);                          // haunch
+  p.form(25, 5, 9, 9, C.fur);                         // head
+  p.rect(5, 7, 23, 1, fur.hi);                        // lit spine
+  p.rect(31, 9, 4, 3, C.muzzle); p.px(34, 10, fur.dark);
+  p.block(25, 2, 2, 3, fur.sh); p.block(29, 2, 2, 3, fur.sh);
+  p.px(29, 8, C.eye); p.px(30, 8, highlight(C.eye));
 }
 
 function drawSenna(p: PC) {
@@ -278,17 +270,14 @@ function drawSenna(p: PC) {
 }
 
 function drawSlime(p: PC) {
-  const body = 0x3a9a6a;
-  // squat blob
-  p.block(4, 8, 20, 11, body);
-  p.block(6, 5, 16, 5, body);
-  p.rect(4, 17, 20, 2, shadow(body, 0.4));
-  p.rect(6, 5, 16, 1, highlight(body));
-  // gloss
-  p.px(9, 7, highlight(body, 0.3)); p.px(10, 7, highlight(body, 0.3));
-  // eyes
-  p.rect(10, 10, 3, 4, 0xffffff); p.rect(16, 10, 3, 4, 0xffffff);
-  p.rect(11, 12, 2, 2, 0x201828); p.rect(17, 12, 2, 2, 0x201828);
+  const C = BEASTS.slime; const body = ramp(C.body);
+  p.form(4, 8, 20, 11, C.body);
+  p.form(6, 5, 16, 5, C.body);
+  p.rect(4, 17, 20, 2, body.dark);           // pools at the base
+  p.rect(6, 5, 16, 1, body.hi);
+  p.px(9, 7, body.hi); p.px(10, 7, body.hi); // gloss
+  p.rect(10, 10, 3, 4, C.eyeWhite); p.rect(16, 10, 3, 4, C.eyeWhite);
+  p.rect(11, 12, 2, 2, C.pupil); p.rect(17, 12, 2, 2, C.pupil);
 }
 
 function drawMilitia(p: PC) {
@@ -371,49 +360,46 @@ function drawDavan(p: PC) {
 }
 
 function drawShade(p: PC) {
-  const fur = 0x342a48, eye = 0x8affd0; // shadow creeper, facing right, 36x22
-  p.block(7, 15, 3, 6, shadow(fur, 0.3)); p.block(13, 15, 3, 6, shadow(fur, 0.3));
-  p.block(21, 15, 3, 6, shadow(fur, 0.3)); p.block(26, 15, 3, 6, shadow(fur, 0.3));
-  p.block(5, 8, 22, 8, fur);
-  p.rect(5, 14, 22, 2, shadow(fur, 0.4));
-  p.block(24, 5, 9, 8, fur);            // head
-  p.block(24, 2, 2, 3, fur); p.block(28, 2, 2, 3, fur); // ears
-  // wisps
-  p.px(2, 7, fur); p.px(0, 9, fur); p.px(4, 5, fur);
-  p.px(29, 8, eye); p.px(30, 8, highlight(eye));
+  const C = BEASTS.shade; const fur = ramp(C.fur);
+  // legs stay flat: 3px wide is below the banding threshold
+  for (const lx of [7, 13, 21, 26]) p.block(lx, 15, 3, 6, fur.sh);
+  p.form(5, 8, 22, 8, C.fur);              // body, volumetric
+  p.rect(5, 14, 22, 2, fur.dark);          // belly in shadow
+  p.form(24, 5, 9, 8, C.fur);              // head
+  p.rect(30, 9, 3, 3, C.muzzle);           // muzzle darker than the coat
+  p.block(24, 2, 2, 3, fur.sh); p.block(28, 2, 2, 3, fur.sh); // ears
+  p.rect(5, 8, 22, 1, fur.hi);             // spine catches the light
+  p.px(2, 7, fur.sh); p.px(0, 9, fur.dark); p.px(4, 5, fur.sh); // wisps
+  p.px(29, 8, C.eye); p.px(30, 8, highlight(C.eye));
 }
 
 function drawMoth(p: PC) {
-  const wing = 0x3a2d52, wingEdge = 0x5a4a7a, body = 0x241a30, eye = 0xb08aff; // 34x24
-  // wings
-  p.block(2, 6, 12, 12, wing); p.block(20, 6, 12, 12, wing);
-  p.rect(2, 6, 12, 1, wingEdge); p.rect(20, 6, 12, 1, wingEdge);
-  p.px(7, 11, 0x8a6aff); p.px(26, 11, 0x8a6aff); // eyespots
-  // body
-  p.block(14, 5, 6, 16, body);
-  // eyes + antennae
-  p.px(15, 7, eye); p.px(18, 7, eye);
-  p.px(14, 3, body); p.px(13, 2, body); p.px(19, 3, body); p.px(20, 2, body);
+  const C = BEASTS.moth; const wing = ramp(C.wing), body = ramp(C.body);
+  p.form(2, 6, 12, 12, C.wing); p.form(20, 6, 12, 12, C.wing);
+  p.rect(2, 6, 12, 1, C.wingEdge); p.rect(20, 6, 12, 1, C.wingEdge);
+  p.rect(2, 17, 12, 1, wing.dark); p.rect(20, 17, 12, 1, wing.dark);
+  p.rect(6, 10, 3, 3, C.spot); p.rect(25, 10, 3, 3, C.spot);        // eyespots
+  p.px(7, 11, wing.dark); p.px(26, 11, wing.dark);
+  p.form(14, 5, 6, 16, C.body);
+  p.rect(14, 9, 6, 1, body.dark); p.rect(14, 13, 6, 1, body.dark);  // segmentation
+  p.px(15, 7, C.eye); p.px(18, 7, C.eye);
+  p.px(14, 3, body.sh); p.px(13, 2, body.sh); p.px(19, 3, body.sh); p.px(20, 2, body.sh);
 }
 
 function drawStalker(p: PC) {
   // big shadow assassin beast, 44x36, hunched, many eyes
-  const mass = 0x241830, massHi = 0x3a2848, eye = 0x9affe0, claw = 0x6a7a8a;
-  // long limbs
-  p.block(8, 22, 4, 12, mass); p.block(34, 22, 4, 12, mass);
-  p.block(16, 26, 4, 10, mass); p.block(26, 26, 4, 10, mass);
-  // claws
-  p.px(8, 34, claw); p.px(11, 34, claw); p.px(34, 34, claw); p.px(37, 34, claw);
-  // hunched body
-  p.block(10, 10, 26, 18, mass);
-  p.rect(10, 10, 26, 2, massHi);
-  // head/maw lower-front
-  p.block(28, 18, 12, 10, mass);
-  // shadow wisps rising
-  p.px(14, 6, mass); p.px(20, 4, mass); p.px(30, 6, mass); p.px(24, 2, mass);
+  const C = BEASTS.stalker; const mass = ramp(C.mass);
+  p.form(8, 22, 4, 12, C.mass); p.form(34, 22, 4, 12, C.mass);
+  p.form(16, 26, 4, 10, C.mass); p.form(26, 26, 4, 10, C.mass);
+  p.px(8, 34, C.claw); p.px(11, 34, C.claw); p.px(34, 34, C.claw); p.px(37, 34, C.claw);
+  p.form(10, 10, 26, 18, C.mass);       // hunched body
+  p.rect(10, 10, 26, 2, mass.hi);       // lit shoulder ridge
+  p.form(28, 18, 12, 10, C.mass);       // head / maw
+  p.rect(28, 27, 12, 1, mass.dark);
+  p.px(14, 6, mass.sh); p.px(20, 4, mass.sh); p.px(30, 6, mass.sh); p.px(24, 2, mass.dark);
   // many glowing eyes
-  p.px(16, 14, eye); p.px(22, 13, eye); p.px(28, 15, eye); p.px(33, 21, eye); p.px(36, 23, eye);
-  p.px(19, 16, eye); p.px(25, 16, eye);
+  for (const [ex, ey] of [[16, 14], [22, 13], [28, 15], [33, 21], [36, 23], [19, 16], [25, 16]])
+    p.px(ex, ey, C.eye);
 }
 
 function drawYara(p: PC) {
@@ -468,24 +454,26 @@ function townsfolk(p: PC, skin: number, hair: number, tunic: number, robe = fals
 }
 
 function drawRat(p: PC) {
-  const fur = 0x8a7a64, pink = 0xc98a8a, eye = 0xff4455; // 28x16, facing right
-  p.block(0, 9, 9, 2, pink); p.px(0, 8, pink);                                  // tail
-  p.block(9, 12, 2, 4, shadow(fur, 0.35)); p.block(14, 12, 2, 4, shadow(fur, 0.35)); p.block(20, 12, 2, 4, shadow(fur, 0.35)); // legs
-  p.block(7, 5, 16, 8, fur);                                                    // body
-  p.rect(7, 11, 16, 2, shadow(fur, 0.4));                                       // belly shadow
-  p.block(20, 4, 7, 7, fur);                                                    // head
-  p.block(26, 7, 2, 2, pink); p.px(27, 8, 0x201018);                            // snout + nose
-  p.block(19, 1, 3, 3, fur); p.block(24, 1, 3, 3, fur);                         // ears
-  p.px(24, 6, eye);
+  const C = BEASTS.rat; const fur = ramp(C.fur);
+  p.block(0, 9, 9, 2, C.pink); p.px(0, 8, C.pink);               // tail
+  for (const lx of [9, 14, 20]) p.block(lx, 12, 2, 4, fur.sh);   // legs
+  p.form(7, 5, 16, 8, C.fur);                                    // body
+  p.rect(7, 11, 16, 2, fur.dark);                                // belly
+  p.form(20, 4, 7, 7, C.fur);                                    // head
+  p.rect(7, 5, 16, 1, fur.hi);                                   // lit back
+  p.block(26, 7, 2, 2, C.pink); p.px(27, 8, fur.dark);           // snout + nose
+  p.block(19, 1, 3, 3, fur.sh); p.block(24, 1, 3, 3, fur.sh);    // ears
+  p.px(24, 6, C.eye);
 }
 
 function drawSpider(p: PC) {
-  const body = 0x2a2438, leg = 0x161220, eye = 0xff5a5a, mark = 0xb03a3a; // 28x20
-  for (let i = 0; i < 4; i++) { const y = 6 + i * 3; p.rect(1, y, 9, 1, leg); p.rect(18, y, 9, 1, leg); } // 8 legs
-  p.block(9, 5, 10, 12, body);                                                  // round body
-  p.rect(9, 5, 10, 1, 0x3a3450);                                                // top sheen
-  p.px(13, 8, mark); p.px(14, 8, mark); p.px(13, 9, mark); p.px(14, 9, mark);   // red hourglass
-  p.px(11, 13, eye); p.px(16, 13, eye); p.px(12, 15, eye); p.px(15, 15, eye);   // eye cluster
+  const C = BEASTS.spider; const body = ramp(C.body);
+  for (let i = 0; i < 4; i++) { const y = 6 + i * 3; p.rect(1, y, 9, 1, C.leg); p.rect(18, y, 9, 1, C.leg); }
+  p.form(9, 5, 10, 12, C.body);         // round body
+  p.rect(9, 5, 10, 1, body.hi);         // top sheen
+  p.rect(9, 16, 10, 1, body.dark);      // underside
+  p.rect(13, 8, 2, 2, C.mark);          // red hourglass
+  p.px(11, 13, C.eye); p.px(16, 13, C.eye); p.px(12, 15, C.eye); p.px(15, 15, C.eye);
 }
 
 export function bakeAll(scene: Phaser.Scene) {
@@ -496,17 +484,17 @@ export function bakeAll(scene: Phaser.Scene) {
   bake(scene, "elder", 32, 32, (p) => townsfolk(p, 0xd8b89a, 0xc0c0c8, 0x7a6a8a, true));
   bake(scene, "mirror", 32, 36, drawMirror);
   bake(scene, "davan", 32, 32, drawDavan);
-  bake(scene, "shade", 36, 22, drawShade);
-  bake(scene, "moth", 34, 24, drawMoth);
-  bake(scene, "stalker", 44, 36, drawStalker);
+  bake(scene, "shade", 36, 22, drawShade, paletteFor(BEASTS.shade, { skinKeys: [], extras: [highlight(BEASTS.shade.eye)] }));
+  bake(scene, "moth", 34, 24, drawMoth, paletteFor(BEASTS.moth, { skinKeys: [] }));
+  bake(scene, "stalker", 44, 36, drawStalker, paletteFor(BEASTS.stalker, { skinKeys: [] }));
   bake(scene, "ashguard", 32, 32, drawAshguard);
   bake(scene, "kael", 32, 32, drawKael);
   bake(scene, "lida", 32, 32, drawLida);
   bake(scene, "senna", 32, 32, drawSenna);
-  bake(scene, "wolf", 36, 22, drawWolf);
-  bake(scene, "slime", 28, 20, drawSlime);
-  bake(scene, "rat", 28, 16, drawRat);
-  bake(scene, "spider", 28, 20, drawSpider);
+  bake(scene, "wolf", 36, 22, drawWolf, paletteFor(BEASTS.wolf, { skinKeys: [], extras: [highlight(BEASTS.wolf.eye)] }));
+  bake(scene, "slime", 28, 20, drawSlime, paletteFor(BEASTS.slime, { skinKeys: [] }));
+  bake(scene, "rat", 28, 16, drawRat, paletteFor(BEASTS.rat, { skinKeys: [] }));
+  bake(scene, "spider", 28, 20, drawSpider, paletteFor(BEASTS.spider, { skinKeys: [] }));
   bake(scene, "militia", 32, 32, drawMilitia);
   bake(scene, "rhogar", 40, 40, drawRhogar);
   if (!scene.textures.exists("pdot")) {

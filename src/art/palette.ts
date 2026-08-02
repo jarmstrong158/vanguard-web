@@ -55,6 +55,46 @@ export const MAREN = {
  * whereas the three-shade rule is what stops a sprite reading as flat. Bounding
  * the set is what matters for cohesion; the exact ceiling less so.
  */
+/**
+ * Build a bounded palette from a character's declared bases.
+ *
+ * Every base contributes its four ramp steps; `skinKeys` get the rosy shadow
+ * target instead of the cool one, and `castOn` adds a deeper entry for any
+ * material that receives a cast shadow -- without one, nearest-colour snapping
+ * sends a deep shadow to whatever material happens to sit closest in RGB.
+ * See DECISIONS.md, milestone 2.
+ */
+export function paletteFor(
+  bases: Record<string, number>,
+  opts: { skinKeys?: string[]; castOn?: string[]; extras?: number[] } = {},
+): number[] {
+  const { skinKeys = ["skin"], castOn = [], extras = [] } = opts;
+  const out: number[] = [PAL.out, ...extras];
+  for (const [k, base] of Object.entries(bases)) {
+    const hue = skinKeys.includes(k) ? SHADOW_SKIN : undefined;
+    const r = ramp(base, 0.26, 0.2, hue);
+    out.push(r.dark, r.sh, r.base, r.hi);
+    if (castOn.includes(k)) out.push(shadow(base, 0.5, hue));
+  }
+  return [...new Set(out)];
+}
+
+/** Enemies and beasts. One entry per material; shades are all derived. */
+export const BEASTS = {
+  /** Shadow Creeper. A dark creature is not a black creature (BRIEF §2.3) --
+   *  it needs a full violet ramp with visible form, not one flat fill. */
+  shade: { fur: 0x352a4e, muzzle: 0x231b34, eye: 0x8affd0 },
+  moth: { wing: 0x4a3a66, wingEdge: 0x6a5a92, body: 0x2e2440, eye: 0xb08aff, spot: 0x8a6aff },
+  wolf: { fur: 0x6b4a38, muzzle: 0x4a3226, eye: 0xff0044 },
+  slime: { body: 0x3a9a6a, eyeWhite: 0xe8f0e8, pupil: 0x201828 },
+  rat: { fur: 0x8a7a64, pink: 0xc98a8a, eye: 0xff4455 },
+  spider: { body: 0x3a3050, leg: 0x241d38, mark: 0xb03a3a, eye: 0xff5a5a },
+  stalker: { mass: 0x342448, claw: 0x6a7a8a, eye: 0x9affe0 },
+  militia: { skin: 0xd9a878, hair: 0x4a3326, tunic: 0x9a8a52, leather: 0x6b4a32, steel: 0xb7bcc8, shaft: 0x8a6a44, eye: 0x2a2030 },
+  ashguard: { skin: 0xc89a78, hair: 0x3a2d26, armor: 0x7a2f33, dark: 0x4a1f24, steel: 0x9aa0ae, shaft: 0x8a6a44, eye: 0xc0392b },
+  rhogar: { skin: 0xc89a78, steel: 0x6a5560, red: 0xb02a33, dark: 0x3a2d31, gold: 0xe0a93a, flame: 0xf77622 },
+};
+
 export function marenPalette(): number[] {
   const skin = ramp(MAREN.skin, 0.26, 0.2, SHADOW_SKIN), hair = ramp(MAREN.hair), tunic = ramp(MAREN.tunic);
   const vest = ramp(MAREN.vest), sash = ramp(MAREN.sash), pants = ramp(MAREN.pants);

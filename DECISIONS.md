@@ -2,6 +2,11 @@
 
 Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reason.
 
+## Milestone 4a — enemy sprites
+
+- **Enemy palettes are declared in `BEASTS` and built by a generic `paletteFor()`,** rather than one hand-written palette function per character. Maren's bespoke `marenPalette()` was worth writing once to find out what the helper needed; repeating it nineteen times would not be.
+- **The Shadow Creeper's base value was tuned to the ground it stands on, not to its own sprite.** Giving it a brighter violet ramp so it had "visible form" per §2.3 looked right in isolation and dropped its contrast against the field from 12.5 to 2.0 — it would have vanished in play. Darkened until contrast came back to 12.3 with the ramp intact. Sprite values are a property of the scene, not of the sprite.
+
 ## Milestone 3 — backgrounds
 
 - **Ground texture is placed on a jittered 3×2 lattice, one tuft per cell, not per pixel.** Rolling every pixel independently at a density high enough to be visible produced isolated orphan pixels — static, not grass (style guide §8.6). Trading a visible repeat for noise is not a fix.
