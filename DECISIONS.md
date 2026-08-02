@@ -15,7 +15,10 @@ Deviations from [BRIEF.md](BRIEF.md), newest first. One line each, with the reas
 - **Text shadows are installed by patching the Text factory once, not by wrapping ~60 `add.text` call sites.** A rule enforced by remembering to wrap each call is a rule that decays the first time someone adds a scene. Closes §8's text-legibility criterion across all six scenes, including the four never edited by hand.
 - **Idle breathe runs only in the command phase.** During an action the tweens own `img.y`, and two writers on one property produce a stutter rather than a breath. Phase offsets are per-actor and deterministic so no two are in step.
 - **Knockback stays at 6px against the brief's stated 1–2px.** At 384×216 with 32px sprites, 2px does not read as impact; the existing 6px does. The brief's figure was written before the canvas size was checked (it also assumed 320×180).
-- **Still outstanding in §2.6:** the four-phase attack timing table (anticipation/contact/follow-through/recovery) and secondary motion on hair and satchels. Not attempted, not deviated from.
+- **Correction to earlier notes in this file and in several claim summaries:** §2.6 contains no "four-phase attack timing table". That phrase came from the EMBERCLASH example brief bundled with the `implementation-brief` skill, not from this document. §2.6 asks for style-guide timings, the three impact cues, idle phase offsets, and secondary motion — nothing else.
+- **Camera shake capped at 2px.** §2.6 says "keep the shake at 2px maximum"; the existing calls used Phaser intensities of 0.008 and 0.012, which on a 384px viewport are 3.1px and 4.6px. Now expressed as `SHAKE_2PX = 2 / W` so the cap cannot drift when the viewport changes.
+- **Idle breathe retimed to the style guide's ~600 ms per frame** (it was 800).
+- **Secondary motion (hair/satchel lag) is deferred, with a reason.** Each character bakes to a single texture, so there is no hair layer to lag: implementing it means splitting every sprite into body + trailing parts and compositing at draw time. That is a change to the sprite pipeline, not a tweak, and it is the one §2.6 item genuinely out of proportion to its payoff right now. Recorded as outstanding, not as done.
 
 ## Milestone 5 — UI
 

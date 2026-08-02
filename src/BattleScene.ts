@@ -36,6 +36,9 @@ interface ActorView {
 
 // Horizon: sky above, walkable battlefield below. Feet must sit below this.
 const HZ = 100;
+/** 2px of a 384px viewport -- the shake ceiling in BRIEF §2.6. Phaser takes
+ *  intensity as a fraction of width, so the cap has to be expressed that way. */
+const SHAKE_2PX = 2 / W;
 // party formation slots (feet baselines), staggered for depth
 const PARTY_SLOTS: [number, number][] = [
   [348, 124], [314, 138], [286, 154], [332, 161],
@@ -165,7 +168,7 @@ export class BattleScene extends Phaser.Scene {
 
     this.views.set(unit, { c: unit, img, bar, nameText, baseX: x, baseY: y, displayedHp: unit.hp, displayedMp: unit.mp, dead: false,
       // deterministic, but coprime-ish per actor so no two land in step
-      breathPhase: (this.views.size * 437) % 1600 });
+      breathPhase: (this.views.size * 437) % 1200 });
   }
 
   // ----------------------------------------------------------- UI
@@ -325,7 +328,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.phase !== "command") return;
     this.views.forEach((v) => {
       if (!v.c.alive || v.dead) return;
-      const up = Math.floor(((now + v.breathPhase) % 1600) / 800) === 1;
+      const up = Math.floor(((now + v.breathPhase) % 1200) / 600) === 1; // style guide §5.3
       v.img.y = v.baseY - (up ? 1 : 0);
     });
   }
@@ -732,9 +735,9 @@ export class BattleScene extends Phaser.Scene {
         this.popup(cx, top, `${r.damage}`, r.crit ? PAL.gold : PAL.clothHi, big);
         if (r.label) this.popup(cx, top - 12, r.label, r.label === "WEAK" ? PAL.red : PAL.cyan);
         else if (r.crit) this.popup(cx, top - 12, "CRIT!", PAL.gold);
-        if (big) this.cameras.main.shake(150, 0.008);
+        if (big) this.cameras.main.shake(150, SHAKE_2PX); // BRIEF §2.6 caps shake at 2px
         const phaseLine = this.battle.maybePhase(target);
-        if (phaseLine) { this.message(phaseLine); this.cameras.main.flash(220, 150, 40, 40); this.cameras.main.shake(280, 0.012); }
+        if (phaseLine) { this.message(phaseLine); this.cameras.main.flash(220, 150, 40, 40); this.cameras.main.shake(280, SHAKE_2PX); }
       }
     } else if (ab.effect === "healing") {
       const r = this.battle.calc(actor, target, ab);
